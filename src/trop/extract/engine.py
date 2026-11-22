@@ -72,9 +72,13 @@ def _extract_list_item(
 ) -> dict[str, Any]:
     item: dict[str, Any] = {}
     for field in fields:
-        # Extractor-level ``block:`` scopes this field (e.g. signatures).
-        block_id = next((e.block for e in field.extractors if e.block), None)
-        if block_id:
+        chunk_extractors = tuple(e for e in field.extractors if not e.block)
+        block_extractors = tuple(e for e in field.extractors if e.block)
+        chunk_val = first_hit(chunk, chunk_extractors) if chunk_extractors else None
+        block_val = None
+        sliced_imieniu = False
+        if block_extractors:
+            block_id = next(e.block for e in block_extractors if e.block)
             field_scope = resolve_scope(text, blocks, block_id)
             # Consortium: keep only the "W imieniu <label>:" slice of the
             # signature block so each mocodawca gets its own signatories.
@@ -82,9 +86,18 @@ def _extract_list_item(
                 sliced = _slice_imieniu(field_scope, label)
                 if sliced:
                     field_scope = sliced
+                    sliced_imieniu = True
+            # Numbered consortium with no "W imieniu" slice: do not share the
+            # whole "Za Mocodawcę" block across members (use grant-line names).
+            if field.key == "podpisujacy" and label and not sliced_imieniu and chunk_val:
+                block_val = None
+            else:
+                block_val = first_hit(field_scope, block_extractors)
+        if field.key == "podpisujacy":
+            # Prefer cleaner signature-block spellings; fall back to grant-line names.
+            val = _merge_signer_lists(chunk_val, block_val)
         else:
-            field_scope = chunk
-        val = first_hit(field_scope, field.extractors)
+            val = chunk_val if chunk_val is not None else block_val
         # Chunk miss → try a label-scoped window in the full document (KRS/NIP
         # for a consortium member live in the preamble, not the signature slice).
         if val is None and label and field.key.startswith("data."):
@@ -174,7 +187,8 @@ def _extract_list(text: str, blocks: dict[str, str], lst: ListSpec) -> list[dict
             if idx + 1 < len(matches):
                 end = matches[idx + 1].start()
             else:
-                end = min(len(scope), match.end() + 240)
+                # Last consortium member needs room for a wrapped "reprezentowana przez".
+                end = min(len(scope), match.end() + 420)
             chunk = scope[start:end]
             label = next((g for g in match.groups() if g), None)
             item = _extract_list_item(chunk, text, blocks, lst.fields, label=label)
@@ -186,9 +200,11 @@ def _extract_list(text: str, blocks: dict[str, str], lst: ListSpec) -> list[dict
                 and has_nazwa_field
                 and not (isinstance(item.get("data"), dict) and item["data"].get("nazwa"))
             ):
-                from trop.normalize.fns import collapse_ws
+                from trop.normalize.fns import company_name
 
-                _set_nested_item(item, "data.nazwa", collapse_ws(label.strip().rstrip(".,;")))
+                seeded = company_name(label.strip().rstrip(".,;"))
+                if seeded:
+                    _set_nested_item(item, "data.nazwa", seeded)
             # Avoid empty-only items and duplicate person names in one list.
             if not any(v is not None and v != [] for v in _leaf_values(item)):
                 continue
@@ -213,12 +229,25 @@ def _finalize_list_items(path: str, items: list[dict[str, Any]]) -> list[dict[st
             for it in items:
                 if it.get("prowadzacy_postepowanie") is None:
                     it["prowadzacy_postepowanie"] = 0
+    if path == "Odwolujacy":
+        # Without an attorney, do not keep appellant/office mail under pelnomocnik.
+        for it in items:
+            if it.get("przez-pelnomocnika") == 1:
+                continue
+            pel = it.get("pelnomocnik")
+            if isinstance(pel, dict):
+                pel["mail"] = None
+                pel["imie_nazwisko"] = None
+                pel["nazwa"] = None
     if path == "mocodawca":
         for it in items:
             data = it.get("data")
             if not isinstance(data, dict):
                 continue
             signers = it.get("podpisujacy") if isinstance(it.get("podpisujacy"), list) else []
+            if signers:
+                it["podpisujacy"] = _dedupe_similar_signers(signers)
+                signers = it["podpisujacy"]
             # Sole-trader scans often only expose the name via the e-sign line.
             if (
                 not data.get("imie_nazwisko")
@@ -237,6 +266,54 @@ def _finalize_list_items(path: str, items: list[dict[str, Any]]) -> list[dict[st
             ):
                 data["typ"] = "osoba_fizyczna"
     return items
+
+
+def _merge_signer_lists(chunk_val: Any, block_val: Any) -> Any:
+    """Combine grant-line and signature-block signers; signature spelling wins."""
+    chunk_list = chunk_val if isinstance(chunk_val, list) else []
+    block_list = block_val if isinstance(block_val, list) else []
+    if not chunk_list and not block_list:
+        return block_val if block_val is not None else chunk_val
+    # Signature block first so dedupe keeps its spelling when OCR differs.
+    return _dedupe_similar_signers([*block_list, *chunk_list])
+
+
+def _fold_person_key(name: str) -> str:
+    """Casefold + strip common OCR diacritic noise for near-duplicate names."""
+    key = name.casefold()
+    for src, dst in (
+        ("ż", "z"),
+        ("ź", "z"),
+        ("ś", "s"),
+        ("ć", "c"),
+        ("ń", "n"),
+        ("ł", "l"),
+        ("ó", "o"),
+        ("ą", "a"),
+        ("ę", "e"),
+    ):
+        key = key.replace(src, dst)
+    return re.sub(r"\s+", " ", key).strip()
+
+
+def _dedupe_similar_signers(signers: list[Any]) -> list[Any]:
+    """Drop OCR near-duplicates; keep the first spelling (caller orders preferred first)."""
+    kept: list[Any] = []
+    keys: list[str] = []
+    for s in signers:
+        if not isinstance(s, dict):
+            kept.append(s)
+            continue
+        name = s.get("imie_nazwisko")
+        if not isinstance(name, str) or not name:
+            kept.append(s)
+            continue
+        key = _fold_person_key(name)
+        if key in keys:
+            continue
+        kept.append(s)
+        keys.append(key)
+    return kept
 
 
 def _leaf_values(obj: Any) -> list[Any]:

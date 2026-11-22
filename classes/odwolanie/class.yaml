@@ -53,6 +53,11 @@ fields:
         pattern: "(?:^|\\n)\\s*[A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\- ]{1,40}\\s*,\\s*(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4})"
         group: 1
         normalize: [date_pl]
+      # OCR scans often drop the comma: "Lódź 05.06.2026r." (letterhead only).
+      - type: regex
+        pattern: "(?m)^\\s*([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\-]{2,24})\\s+(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4})\\s*r?\\.?"
+        group: 2
+        normalize: [date_pl]
 
   - path: OdwolanieKIO.miejscowosc
     extractors:
@@ -61,15 +66,19 @@ fields:
       - type: regex
         pattern: "(?:^|\\n)\\s*([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\- ]{1,40})\\s*,\\s*(?i:dnia)\\s+"
         group: 1
-        normalize: [collapse_ws, strip_titles]
+        normalize: [collapse_ws, strip_titles, place_name]
       - type: regex
         pattern: "(?:^|\\n)\\s*([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\- ]{1,40})\\s*,\\s*\\d{1,2}\\s+(?i:stycznia|lutego|marca|kwietnia|maja|czerwca|lipca|sierpnia|września|października|listopada|grudnia)\\s+"
         group: 1
-        normalize: [collapse_ws, strip_titles]
+        normalize: [collapse_ws, strip_titles, place_name]
       - type: regex
         pattern: "(?:^|\\n)\\s*([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\- ]{1,40})\\s*,\\s*\\d{1,2}[./-]\\d{1,2}[./-]\\d{4}"
         group: 1
-        normalize: [collapse_ws, strip_titles]
+        normalize: [collapse_ws, strip_titles, place_name]
+      - type: regex
+        pattern: "(?m)^\\s*([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\-]{2,24})\\s+\\d{1,2}[./-]\\d{1,2}[./-]\\d{4}"
+        group: 1
+        normalize: [collapse_ws, strip_titles, place_name]
 
   - path: OdwolanieKIO.czynnosc_dzien
     extractors:
@@ -93,12 +102,13 @@ fields:
       # Hold-out style: "polegających na: 1) wyborze … 2) zaniechaniu …"
       - type: regex
         # Challenged-act list only — not the later "zaskarżonym … 1) art. …" zarzuty list.
-        pattern: "(?i)polegających\\s+na[\\s\\S]{0,80}?\\d[\\.\\)]\\s*([^\\n]{8,220})"
+        pattern: "(?i)polegających\\s+na[\\s\\S]{0,80}?(?:^|\\n)\\s*(?:\\[ocr\\]\\s*)?\\d[\\.\\)]\\s*([^\\n]{8,220})"
         group: 1
         normalize: [collapse_ws]
         map_to_powod_id: true
+      # OCR drops ł ("odwolanie"); page breaks push act 1 past 320 chars; [ocr] prefix.
       - type: regex
-        pattern: "(?i)(?:odwołanie\\s+wobec|wnoszę\\s+odwołanie\\s+wobec)[\\s\\S]{0,320}?\\d[\\.\\)]\\s*([^\\n]{8,220})"
+        pattern: "(?i)(?:odwo[łl]anie\\s+wobec|wnosz\\w*\\s+odwo[łl]anie\\s+wobec)[\\s\\S]{0,900}?(?:^|\\n)\\s*(?:\\[ocr\\]\\s*)?\\d[\\.\\)]\\s*((?!art\\.)[^\\n]{8,220})"
         group: 1
         normalize: [collapse_ws]
         map_to_powod_id: true
@@ -110,9 +120,15 @@ fields:
         group: 1
         normalize: [collapse_ws]
         map_to_powod_id: true
+      # OCR band recovery: "wobec: Przedmiotu Zamówienia (OPZ), …"
+      - type: regex
+        pattern: "(?i)(?:odwo[łl]anie\\s+wobec|wnosz\\w*\\s+odwo[łl]anie\\s+wobec|polegających\\s+na)[\\s\\S]{0,240}?(opis\\s+przedmiotu\\s+zamówienia|przedmiotu\\s+zamówienia\\s*\\(?\\s*OPZ|\\bOPZ\\b)"
+        group: 1
+        normalize: [collapse_ws]
+        map_to_powod_id: true
       - type: regex
         block: zarzuty
-        pattern: "(?i)(zaniechani[ue]\\s+unieważnienia|zaniechani[ue]\\s+wykluczenia|zaniechani[ue]\\s+odrzucenia|decyzj[aei]\\s+o\\s+unieważnieniu\\s+postępowania|unieważni\\w*\\s+postępowani|odpowiedzi/?wyjaśnienia\\s+do\\s+SWZ|wyjaśnieni[ae]\\s+do\\s+SWZ|modyfikacj[aei]\\s+treści\\s+(?:SWZ|Specyfikacji)|publikacj[aei]\\s+specyfikacji\\s+warunków\\s+zamówienia|specyfikacj[aei]\\s+warunków\\s+zamówienia\\s*\\(?SWZ\\)?|projektowane\\s+postanowienia\\s+umowy|ogłoszeni[ae]\\s+wyboru\\s+oferty|wyborze?\\s+(?:jako\\s+)?najkorzystniejszej|decyzj[aei]\\s+o\\s+wykluczeniu\\s+wykonawcy|decyzj[aei]\\s+o\\s+odrzuceniu\\s+oferty|odrzuc\\w*\\s+ofert|wyklucz\\w*\\s+(?:wykonawc|Odwołującego|z\\s+postępowania)|opis\\s+przedmiotu\\s+zamówienia)"
+        pattern: "(?i)(zaniechani[aue]\\s+unieważnienia|zaniechani[aue]\\s+wykluczenia|zaniechani[aue]\\s+odrzucenia|decyzj[aei]\\s+o\\s+unieważnieniu\\s+postępowania|unieważni\\w*\\s+postępowani|odpowiedzi/?wyjaśnienia\\s+do\\s+SWZ|wyjaśnieni[ae]\\s+do\\s+SWZ|projektowan\\w*\\s+postanowie[nń]\\w*|modyfikacj[aei]\\s+treści\\s+(?:SWZ|Specyfikacji)|publikacj[aei]\\s+specyfikacji\\s+warunków\\s+zamówienia|specyfikacj[aei]\\s+warunków\\s+zamówienia\\s*\\(?SWZ\\)?|ogłoszeni[ae]\\s+wyboru\\s+oferty|wybor(?:u|y|ze)\\s+(?:jako\\s+)?najkorzystniejszej|czynno[sś]ci\\s+wyboru|decyzj[aei]\\s+o\\s+wykluczeniu\\s+wykonawcy|decyzj[aei]\\s+o\\s+odrzuceniu\\s+oferty|odrzuc\\w*\\s+ofert|wyklucz\\w*\\s+(?:wykonawc|Odwołującego|z\\s+postępowania)|opis\\s+przedmiotu\\s+zamówienia)"
         group: 1
         normalize: [collapse_ws]
         map_to_powod_id: true
@@ -170,7 +186,7 @@ fields:
         value_pattern: "([A-Z0-9][A-Za-z0-9./_\\-]{3,40})"
         normalize: [collapse_ws]
       - type: regex
-        pattern: "(?i:(?:numer|nr)\\s+referencyjny(?:\\s+sprawy)?|numer\\s+postępowania|znak\\s+sprawy)\\s*[:\\-]?\\s*([A-Z0-9][A-Za-z0-9./_\\-]{3,40})"
+        pattern: "(?i:(?:numer|nr)\\s*referencyjny(?:\\s+sprawy)?|numer\\s+postępowania|znak\\s+sprawy|nrreferencyjny)\\s*[:\\-]?\\s*([A-Z0-9][A-Za-z0-9./_\\-]{3,40})"
         group: 1
         normalize: [collapse_ws]
 
@@ -182,8 +198,8 @@ fields:
         group: 1
         normalize: [collapse_ws]
       - type: regex
-        # OCR often drops the opening quote: pn. Title…", nr referencyjny
-        pattern: "(?is)pn\\.\\s*([^\\n”\"»]{8,200}?(?:\\n[^\\n”\"»]{3,120}){0,3}?)\\s*[”\"»~]?,?\\s*(?:nr|numer)\\s+referencyj"
+        # OCR: "pn. , Budowa… towarzyszącq", nrreferencyjny (comma/space/glued label)
+        pattern: "(?is)pn\\.\\s*[,\\s„\"«]*([^”\"»]{8,200}?(?:\\n[^\\n”\"»]{3,120}){0,3}?)\\s*[”\"»~q]?,?\\s*(?:nr\\s*|numer\\s*)?referencyj"
         group: 1
         normalize: [collapse_ws]
       - type: label
@@ -229,14 +245,19 @@ lists:
             pattern: "(?i)Działając\\s+w\\s+imieniu\\s+(?:Konsorcjum\\s*[:\\-]?\\s*)?([^,\\n(]{5,120})"
             group: 1
             normalize: [collapse_ws, strip_titles, company_name]
+          - type: regex
+            # Sole trader: "pod firmą …" (prefer over the "prowadzący…" line).
+            pattern: "(?i)pod\\s+firmą\\s+([^,\\n(]{5,120})"
+            group: 1
+            normalize: [collapse_ws, strip_titles, company_name]
+          # Numbered consortium leader: "1) Tervana Systemy … sp. k. (Lider…"
+          - type: regex
+            pattern: "(?i)(?:^|\\n)\\s*1\\)\\s*([A-ZĄĆĘŁŃÓŚŹŻ][^\\n(]{5,120}?)(?=\\s*\\(|\\s*$)"
+            group: 1
+            normalize: [collapse_ws, strip_titles, company_name]
           # OCR: Odwołujacy: / Odwołujący: then firm on next line.
           - type: regex
             pattern: "(?i)odwo[łl]uj[aą]c\\w*\\s*:\\s*\\n\\s*([^\\n]{5,160})"
-            group: 1
-            normalize: [collapse_ws, strip_titles, company_name]
-          - type: regex
-            # Sole trader: "pod firmą BRONTEX-BUD Maciej Jaworski" / OCR firm line.
-            pattern: "(?i)pod\\s+firmą\\s+([^,\\n(]{5,120})"
             group: 1
             normalize: [collapse_ws, strip_titles, company_name]
           - type: regex
@@ -261,33 +282,38 @@ lists:
         extractors:
           - type: regex
             # Name on the line after "przez pełnomocnika:" / "petnomocnika:"
-            pattern: "(?i:przez\\s+pe\\w{0,3}nomocnika)\\s*:\\s*\\n\\s*((?:adw\\.?|r\\.?\\s*pr\\.?|radca\\s+prawny)\\s+)?([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\-]+\\s+[A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\-]+)"
+            pattern: "(?i:przez\\s+pe\\w{0,3}nomocnika)\\s*:\\s*\\n\\s*((?:adw\\.?|adwokat|r\\.?\\s*pr\\.?|radca\\s+prawny)\\s+)?([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\-]+\\s+[A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\-]+)"
             group: 2
             normalize: [collapse_ws, strip_titles, person_name, nominative]
           - type: regex
             # "reprezentowana przez: r. pr. Aleksandra Marciniak, r. pr. …"
-            pattern: "(?i:reprezentowan[ya]\\s+przez(?:\\s+pe\\w{0,3}nomocnika)?)\\s*[:\\-]?\\s*((?:adw\\.?|r\\.?\\s*pr\\.?|radca\\s+prawny)\\s+)?([A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
+            pattern: "(?i:reprezentowan[ya]\\s+przez(?:\\s+pe\\w{0,3}nomocnika)?)\\s*[:\\-]?\\s*((?:adw\\.?|adwokat|r\\.?\\s*pr\\.?|radca\\s+prawny)\\s+)?([A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
             group: 2
             normalize: [collapse_ws, strip_titles, person_name, nominative]
           - type: regex
-            pattern: "(?i:pe\\w{0,3}nomocnik(?:a|iem)?)\\s*[:\\-]?\\s*((?i:adw\\.?|r\\.?\\s*pr\\.?|radca\\s+prawny)?\\s*[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
-            group: 1
+            # Require a professional title so "pełnomocnik Odwołującego\\nName" does not leak.
+            pattern: "(?i:pe\\w{0,3}nomocnik(?:a|iem)?)\\s*[:\\-]?\\s*((?:adw\\.?|adwokat|r\\.?\\s*pr\\.?|radca\\s+prawny)\\s+)([A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
+            group: 2
             normalize: [collapse_ws, strip_titles, person_name, nominative]
       - key: pelnomocnik.nazwa
         extractors:
-          # Full firm on the correspondence line (may wrap before "ograniczoną…").
+          # Full firm on the correspondence line (OCR: korespondencii).
           - type: regex
-            pattern: "(?is)adres\\s+do\\s+korespondencji\\s*[:\\-]?\\s*(.+?)(?=,\\s*(?:ul\\.|pl\\.|al\\.|os\\.)|\\sul\\.|\\n\\s*tel\\.)"
+            pattern: "(?is)adres\\s+do\\s+korespondenc\\w*\\s*[:\\-]?\\s*(.+?)(?=,\\s*(?:ul\\.|pl\\.|al\\.|os\\.)|\\sul\\.|\\n\\s*tel\\.)"
             group: 1
-            normalize: [collapse_ws]
+            normalize: [collapse_ws, company_name]
           - type: regex
             pattern: "(?i)((?:[A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\-]+(?:\\s+|,\\s*)?){1,6}Kancelaria[^\\n]{3,80})"
             group: 1
-            normalize: [collapse_ws]
+            normalize: [collapse_ws, company_name]
           - type: regex
-            pattern: "(?is)(Kancelaria[^\\n]{3,80}(?:\\n[^\\n]{3,60})?)"
+            pattern: "(?im)^(KANCELARIA\\s+RADCY\\s+PRAWNEGO\\s+[A-ZĄĆĘŁŃÓŚŹŻ][^\\n]{3,60})"
             group: 1
-            normalize: [collapse_ws]
+            normalize: [collapse_ws, company_name]
+          - type: regex
+            pattern: "(?is)(Kancelaria\\s+Radcy\\s+Prawnego[^\\n]{3,80})"
+            group: 1
+            normalize: [collapse_ws, company_name]
       - key: pelnomocnik.mail
         extractors:
           - type: regex

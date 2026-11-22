@@ -43,13 +43,14 @@ lists:
     # Consortium PoAs list members as "1) Firm…; 2) Firm…" or sign as
     # "W imieniu Firm:". Single-grant PoAs fall back to one item from the block.
     mode: multi_from_regex
-    # Own-line signature header only — not "Działając w imieniu X (dalej: …)".
-    item_pattern: "(?im)^\\s*W\\s+imieniu\\s+([^:\\n]{3,120})\\s*:\\s*$"
+    # "W imieniu Firm:" signatures, or numbered consortium firms (legal-form required).
+    item_pattern: "(?im)(?:^\\s*W\\s+imieniu\\s+([^:\\n]{3,120})\\s*:\\s*$|^\\s*\\d+[\\)\\.]\\s*([A-ZĄĆĘŁŃÓŚŹŻ][^,\\n(]{3,100}?(?:S\\.A\\.|sp\\.\\s*z\\s*o\\.o\\.|sp\\.\\s*k\\.|sp\\.\\s*j\\.|spółka\\s+z\\s+ograniczoną\\s+odpowiedzialnością)))"
     fields:
       - key: data.krs
         extractors:
           - type: regex
-            pattern: "(?i)\\bKRS\\b\\s*[:\\-]?\\s*(\\d{6,10})"
+            # Allow OCR letter-O inside the digit run (normalizer maps o→0).
+            pattern: "(?i)\\bKRS\\b\\s*[:\\-]?\\s*([0-9oOоО]{6,14})"
             group: 1
             normalize: [krs_pad10]
       - key: data.nip
@@ -131,11 +132,17 @@ lists:
       # titled names (attorneys accepting the mandate) are not signatories.
       - key: podpisujacy
         extractors:
+          # Per-member grant line (chunk scope): "reprezentowana przez: Name – Prezes"
+          # Names may wrap across lines after OCR ("Lukasz\\nSosnowski").
+          - type: regex_all
+            pattern: "(?is:reprezentowan[ya]\\s+przez\\s*:?\\s*)([A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)?\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
+            group: 1
+            normalize: [collapse_ws, strip_titles, person_name, nominative]
+            wrap_key: imie_nazwisko
           - type: regex_all
             block: podpisujacy
-            # Dotted line, "Za Mocodawcę:", e-sign, "reprezentowana przez:",
-            # or "Name - Prezes/Członek/…" board lines (OCR may glue NameSurname).
-            pattern: "(?:\\.{5,}[ \\t]*\\n(?:[ \\t]*(?i:za)[ \\t][^\\n]*\\n)?[ \\t]*|(?i:za\\s+mocodawc\\w*\\s*:\\s*|dokument\\s+podpisany\\s+przez\\s*|podpisując[ya]\\s*|w\\s+imieniu[^:\\n]{0,40}:\\s*|reprezentowan[ya]\\s+przez\\s*:?\\s*)|^[ \\t]*(?=[A-ZĄĆĘŁŃÓŚŹŻ][^\\n]{0,40}[-–]\\s*(?i:Prezes|Członek|Wiceprezes|Prokurent)))([A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)?[ \\t]*[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
+            # Dotted line, "Za Mocodawcę:", e-sign, or "Name - Prezes/…" board lines.
+            pattern: "(?:\\.{5,}[ \\t]*\\n(?:[ \\t]*(?i:za)[ \\t][^\\n]*\\n)?[ \\t]*|(?i:za\\s+mocodawc\\w*\\s*:\\s*|dokument\\s+podpisany\\s+przez\\s*|podpisując[ya]\\s*|w\\s+imieniu[^:\\n]{0,40}:\\s*)|^[ \\t]*(?=[A-ZĄĆĘŁŃÓŚŹŻ][^\\n]{0,40}[-–]\\s*(?i:Prezes|Członek|Wiceprezes|Prokurent)))([A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)?\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
             group: 1
             normalize: [collapse_ws, strip_titles, person_name, nominative]
             wrap_key: imie_nazwisko
