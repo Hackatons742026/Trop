@@ -1,27 +1,54 @@
 # Global negative anchors: content that indicates out-of-class / look-alike docs.
 # Matching these (without strong positive class evidence) → classify as other → {}.
+#
+# Keep anchors DOCUMENT-type specific. Real appeals often *cite* a KIO wyrok or
+# mention "ogłoszenie o zamówieniu"; those phrases alone must not veto a filing.
 anchors:
-  - pattern: "(?i)wyrok\\s+krajowej\\s+izby\\s+odwoławczej"
+  - pattern: "(?i)(?:^|\\n)\\s*(?:WYROK|POSTANOWIENIE)\\s*(?:\\n|$)"
+    weight: 10
+    note: "KIO judgment / order title line"
+  - pattern: "(?i)\\borzeka\\s*:"
+    weight: 10
+    note: "KIO operative part"
+  - pattern: "(?i)odrzuca\\s+odwołanie|kosztami\\s+postępowania\\s+obciąża"
     weight: 8
-    note: "KIO judgment (not an appeal filing)"
-  - pattern: "(?i)\\bwyrok\\b.{0,40}\\bKIO\\b"
+    note: "KIO ruling disposition"
+  - pattern: "(?i)Sygn\\.\\s*akt\\s*:\\s*KIO\\s*\\d+"
     weight: 6
-    note: "KIO wyrok shorthand"
-  - pattern: "(?i)ogłoszenie\\s+o\\s+zamówieniu"
-    weight: 5
-    note: "TED/BZP procurement notice"
+    note: "KIO case signature on a ruling"
+  - pattern: "(?i)See\\s+the\\s+notice\\s+on\\s+TED|OJ\\s+S\\s+\\d+/\\d{4}"
+    weight: 12
+    note: "TED / OJEU notice header"
   - pattern: "(?i)Dziennik\\s+Urzędowy\\s+Unii\\s+Europejskiej"
-    weight: 6
+    weight: 8
     note: "OJEU / TED notice"
+  - pattern: "(?i)Ogłoszenie\\s+o\\s+zamówieniu\\s+lub\\s+ogłoszenie\\s+o\\s+koncesji"
+    weight: 10
+    note: "TED eForms notice title"
+  - pattern: "(?i)Procedura\\s+konkurencyjna|Identyfikator\\s+procedury"
+    weight: 6
+    note: "TED eForms procedure block"
   - pattern: "(?i)\\bTED\\b.{0,20}eTendering|eNotices"
     weight: 5
     note: "TED portal artefacts"
-  - pattern: "(?i)Biuletyn\\s+Zamówień\\s+Publicznych"
+  - pattern: "(?i)Postępowanie\\s+odwoławcze\\s+i\\s+sądowoadministracyjne"
+    weight: 8
+    note: "Training slide deck / handbook"
+  - pattern: "(?i)DECYZJA\\s*/\\s*POSTANOWIENIE"
     weight: 5
-    note: "BZP notice body"
-  - pattern: "(?i)decyzja\\s+ministra"
+    note: "Admin-procedure teaching slide"
+  - pattern: "(?i)Art\\.\\s*15\\s+KPA|zasada\\s+dwuinstancyjności"
     weight: 4
-    note: "Ministerial decision look-alike"
+    note: "KPA teaching material"
+  - pattern: "(?i)MINISTER\\s+SPORT|decyzja\\s+ministra|DECYZJA\\s+Nr"
+    weight: 8
+    note: "Minister of Sport decision"
+  - pattern: "(?i)zatwierdzić\\s+statut|ustawy\\s+z\\s+dnia\\s+25\\s+czerwca\\s+2010\\s+r\\.\\s+o\\s+sporcie"
+    weight: 6
+    note: "Sports-act ministerial decision"
+  - pattern: "(?i)od\\s+niniejszej\\s+decyzji\\s+nie\\s+s[łl]u[żz]y\\s+odwo[łl]anie"
+    weight: 5
+    note: "Admin decision pouczenie"
   - pattern: "(?i)JPK[_\\s-]?FA"
     weight: 5
     note: "JPK_FA brochure / tax schema"
@@ -32,4 +59,4 @@ anchors:
 # If negative_score >= veto_threshold and
 # (best_class_score - negative_score) < veto_margin → other.
 veto_threshold: 5.0
-veto_margin: 2.0
+veto_margin: 3.0

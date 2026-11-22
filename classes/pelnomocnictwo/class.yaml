@@ -1,15 +1,19 @@
 id: pelnomocnictwo
 label: Pełnomocnictwo
 detect:
-  threshold: 6.0
+  threshold: 5.0
   margin: 2.0
   keywords:
+    # Letter-spaced title "P E Ł N O M O C N I C T W O".
+    - { pattern: "(?i)\\bP\\s*E\\s*[ŁL]\\s*N\\s*O\\s*M\\s*O\\s*C\\s*N\\s*I\\s*C\\s*T\\s*W\\s*O\\b", weight: 5.0 }
     - { pattern: "(?i)\\bpełnomocnictwo\\b", weight: 5.0 }
     - { pattern: "(?i)udziela\\s+(?:niniejszym\\s+)?pełnomocnictwa", weight: 4.0 }
+    - { pattern: "(?i)ustanawiam\\s+pełnomocnikiem", weight: 4.0 }
     - { pattern: "(?i)\\bmocodawc", weight: 3.0 }
     - { pattern: "(?i)\\bpełnomocnik", weight: 2.0 }
     - { pattern: "(?i)do\\s+reprezentowania", weight: 2.0 }
     - { pattern: "(?i)przed\\s+Krajową\\s+Izbą\\s+Odwoławczą", weight: 2.0 }
+    - { pattern: "(?i)udzielania\\s+dalszych\\s+pełnomocnictw", weight: 2.0 }
 
 blocks:
   - id: mocodawca

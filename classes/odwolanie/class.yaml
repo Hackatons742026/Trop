@@ -2,16 +2,21 @@ id: odwolanie
 label: Odwołanie do KIO
 detect:
   threshold: 7.0
-  margin: 2.0
+  margin: 1.5
   keywords:
+    # Letter-spaced title "O D W O Ł A N I E" counts as a filing heading.
+    - { pattern: "(?i)\\bO\\s*D\\s*W\\s*O\\s*[ŁL]\\s*A\\s*N\\s*I\\s*E\\b", weight: 5.0 }
     - { pattern: "(?i)\\bodwołanie\\b", weight: 4.0 }
-    - { pattern: "(?i)Krajow[ae]\\s+Izb[ay]\\s+Odwoławcz", weight: 5.0 }
-    - { pattern: "(?i)\\bKIO\\b", weight: 2.0 }
+    - { pattern: "(?i)Prezes\\s+Krajowej\\s+Izby\\s+Odwoławczej", weight: 5.0 }
+    - { pattern: "(?i)Krajow[ae]\\s+Izb[ay]\\s+Odwoławcz", weight: 4.0 }
+    - { pattern: "(?i)\\bKIO\\b", weight: 1.5 }
     - { pattern: "(?i)\\bodwołując", weight: 3.0 }
     - { pattern: "(?i)\\bzamawiając", weight: 1.5 }
     - { pattern: "(?i)\\bzarzut", weight: 2.0 }
     - { pattern: "(?i)zaskarżon", weight: 2.0 }
-    - { pattern: "(?i)wnoszę\\s+odwołanie|wnosi\\s+odwołanie", weight: 3.0 }
+    - { pattern: "(?i)wnoszę\\s+odwołanie|wnosi\\s+odwołanie", weight: 3.5 }
+    - { pattern: "(?i)wnoszę\\s+o\\s*:|Działając\\s+w\\s+imieniu", weight: 2.0 }
+    - { pattern: "(?i)art\\.\\s*513|Prawo\\s+zamówień\\s+publicznych", weight: 1.5 }
 
 blocks:
   - id: header
