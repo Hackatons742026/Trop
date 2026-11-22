@@ -35,14 +35,6 @@ class OcrSettings(BaseModel):
     backend: str = "onnxruntime"
 
 
-class LlmSettings(BaseModel):
-    enabled: bool = False
-    base_url: str | None = None
-    api_key: str | None = None
-    model: str | None = None
-    timeout_s: int = 30
-
-
 class PathSettings(BaseModel):
     input_dir: Path = Path("input")
     output_dir: Path = Path("output")
@@ -90,7 +82,6 @@ class Settings(BaseSettings):
     max_pages: int | None = 40
     log_level: str = "INFO"
     ocr: OcrSettings = Field(default_factory=OcrSettings)
-    llm: LlmSettings = Field(default_factory=LlmSettings)
 
     @classmethod
     def settings_customise_sources(
@@ -180,9 +171,6 @@ def settings_from_yaml(yaml_data: dict) -> dict:
     ocr = yaml_data.get("ocr") or {}
     if ocr:
         kwargs["ocr"] = dict(ocr)
-    llm = yaml_data.get("llm") or {}
-    if llm:
-        kwargs["llm"] = dict(llm)
     return kwargs
 
 

@@ -96,7 +96,7 @@ Tune via `config/app.yaml` or `TROP_*` env (see `.env.example`).
 
 ```bash
 cp .env.example .env
-# edit TROP_LLM_* if/when LLM assist is enabled (config/llm.yaml default_profile: none)
+# set TROP_LLM__API_KEY if/when an LLM profile is enabled in config/llm.yaml
 ```
 
 ## Evidence sidecars
