@@ -99,6 +99,76 @@ def test_dummy_class_loads_with_zero_code_change(tmp_path: Path) -> None:
     assert spec.detect.threshold == 3.0
 
 
+def test_new_class_list_items_get_schema_defaults(tmp_path: Path) -> None:
+    """List item keys come from the class schema — no Python per class."""
+    from trop.extract.engine import extract_payload
+    from trop.io.schema_validate import validate_payload
+
+    class_dir = tmp_path / "strony_demo"
+    class_dir.mkdir()
+    (class_dir / "class.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "id": "strony_demo",
+                "detect": {"keywords": [{"pattern": "(?i)strona", "weight": 5.0}]},
+                "lists": [
+                    {
+                        "path": "Strony",
+                        "mode": "single",
+                        "fields": [
+                            {
+                                "key": "nazwa",
+                                "extractors": [{"type": "regex", "pattern": "Strona: (.+)"}],
+                            }
+                        ],
+                    }
+                ],
+            },
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    nullable = {"type": ["string", "null"]}
+    item = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["nazwa", "nip", "adres", "role"],
+        "properties": {
+            "nazwa": nullable,
+            "nip": nullable,
+            "adres": {
+                "type": "object",
+                "required": ["ulica", "miasto"],
+                "properties": {"ulica": nullable, "miasto": nullable},
+            },
+            "role": {"type": "array", "items": {"type": "string"}},
+        },
+    }
+    (class_dir / "schema.json").write_text(
+        json.dumps(
+            {
+                "type": "object",
+                "required": ["Strony"],
+                "properties": {"Strony": {"type": "array", "items": item}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    spec = load_class_spec(class_dir)
+
+    payload = extract_payload("Strona: Firma Testowa\n", spec)
+
+    assert payload["Strony"] == [
+        {
+            "nazwa": "Firma Testowa",
+            "nip": None,
+            "adres": {"ulica": None, "miasto": None},
+            "role": [],
+        }
+    ]
+    assert validate_payload(payload, spec.schema)
+
+
 def test_new_class_cli_copies_template(tmp_path: Path, monkeypatch) -> None:
     # Build a miniature classes tree with only _template.
     classes = tmp_path / "classes"
