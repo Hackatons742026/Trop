@@ -13,7 +13,7 @@ from rapidfuzz import fuzz
 
 from eval.align import align_lists
 
-# Long-string fields: token_set_ratio >= 80 counts as TP (mentor rule).
+# Long-string fields: >= 80% similarity counts as TP (mentor rule).
 LONG_STRING_SUFFIXES = (
     "pelnomocnik.nazwa",  # attorney company name
     "przelew_bankowy.tytul",  # transfer title
@@ -156,7 +156,11 @@ def values_equal(pred: Any, gold: Any, path: str) -> bool:
         return float(pred) == float(gold)
     if isinstance(pred, str) and isinstance(gold, str):
         if _use_fuzzy(path):
-            return fuzz.token_set_ratio(pred, gold) >= SIMILARITY_THRESHOLD
+            # Normalized edit-distance similarity. Not token_set_ratio: it
+            # scores 100 whenever one side's tokens are a subset of the
+            # other's ("Gmina" vs "Gmina Miejska Kraków"), hiding over- and
+            # under-capture and inflating F1.
+            return fuzz.ratio(pred, gold) >= SIMILARITY_THRESHOLD
         return pred == gold
     return pred == gold
 

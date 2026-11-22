@@ -10,7 +10,7 @@ arrives, update code + this file in the same change.
 | **Partial redaction** | Partly redacted names / IDs → **`null`** (do not invent). | Invented values on empty gold are pure FP. |
 | **Multiple attorneys** | Prefer list extractors (`pelnomocnicy` / nested `pelnomocnik`); align lists by content in F1. | FAQ list-alignment rule. |
 | **TED / BZP suffixes** | Keep numbers **as printed** (including suffixes) unless a normaliser is declared. | Over-stripping creates FP/FN. |
-| **80% similarity** | Eval uses `rapidfuzz.fuzz.token_set_ratio >= 80` on named long-string fields only. | Mentor F1 long-string rule; exact algo may be refined. |
+| **80% similarity** | Eval uses `rapidfuzz.fuzz.ratio >= 80` (normalized edit distance) on named long-string fields only. `token_set_ratio` was rejected: it scores any token subset as 100. | Mentor F1 long-string rule; exact algo may be refined. |
 | **czynnosc_opis** | Copied **1:1** from the official dictionary (incl. `/` and code 12). | Exact gold match. |
 | **IBAN / accounts** | Keep `PL` prefix when present; do not invent country codes. | Official quirk. |
 | **Person names** | Prefer nominative forms when a normaliser exists; else leave as written. | Mentors may clarify edge cases. |

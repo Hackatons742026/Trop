@@ -34,6 +34,17 @@ def test_exact_and_fuzzy() -> None:
     )
 
 
+def test_fuzzy_rejects_token_subsets() -> None:
+    """token_set_ratio scored these 100; they are partial / over-captures."""
+    assert not values_equal("Gmina", "Gmina Miejska Kraków", "Zamawiajacy[0].nazwa")
+    assert not values_equal("sp. z o.o.", "Budex sp. z o.o.", "Odwolujacy[0].nazwa")
+    assert not values_equal(
+        "Budex sp. z o.o. z siedzibą w Krakowie, KRS 0000123456, NIP 6762345678",
+        "Budex sp. z o.o.",
+        "mocodawca[0].data.nazwa",
+    )
+
+
 def test_holdout_cases() -> None:
     assert is_holdout_path("przyklad_46/odwolanie.json")
     assert is_holdout_path("przyklad_60/x.json")
