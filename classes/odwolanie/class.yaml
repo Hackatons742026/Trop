@@ -92,8 +92,13 @@ fields:
     extractors:
       # Hold-out style: "polegających na: 1) wyborze … 2) zaniechaniu …"
       - type: regex
-        # First numbered challenged act (1) or 1.); allow one wrapped line.
-        pattern: "(?i)(?:polegających\\s+na|odwołanie\\s+wobec|zaskarżon\\w*\\s+czynnoś|wnoszę\\s+odwołanie\\s+wobec)[\\s\\S]{0,160}?\\d[\\.\\)]\\s*([^\\n]{8,220}(?:\\n[^\\n]{5,120})?)"
+        # First numbered challenged act only (single line — do not swallow "2) …").
+        pattern: "(?i)(?:polegających\\s+na|zaskarżon\\w*\\s+czynnoś)[\\s\\S]{0,80}?\\d[\\.\\)]\\s*([^\\n]{8,220})"
+        group: 1
+        normalize: [collapse_ws]
+        map_to_powod_id: true
+      - type: regex
+        pattern: "(?i)(?:odwołanie\\s+wobec|wnoszę\\s+odwołanie\\s+wobec)[\\s\\S]{0,320}?\\d[\\.\\)]\\s*([^\\n]{8,220})"
         group: 1
         normalize: [collapse_ws]
         map_to_powod_id: true

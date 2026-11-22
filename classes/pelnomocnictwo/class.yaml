@@ -139,7 +139,9 @@ lists:
     # without it company names / court names / signatories became attorneys.
     # 1) title before name  2) "Name (adwokat|radca…"  3) bare Title-case line
     # 4) "ADW.\\nNAME\\nSURNAME" OCR split
-    item_pattern: "((?i:\\b(?:adw\\.?|adwokat|r\\.?\\s*pr\\.?|radca\\s+prawny)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))|[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+(?:-[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+)?\\s+[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+(?:-[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+)?\\s*\\(\\s*(?i:adwokat|radca\\s+prawny)|(?i:adw\\.?|ADW\\.?)\\s*\\n\\s*[A-ZĄĆĘŁŃÓŚŹŻ]{2,}\\s*\\n\\s*[A-ZĄĆĘŁŃÓŚŹŻ]{2,}|(?:^|\\n)\\s*([A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+(?:-[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+)?\\s+[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+(?:-[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+)?)\\s*(?=\\n|$))"
+    # 1) title before name  2) "Name – adwokat|radca"  3) "Name (adwokat|radca|pracownik)"
+    # 4) ADW.\\nNAME\\nSURNAME  5) bare Title-case line (last resort)
+    item_pattern: "((?i:\\b(?:adw\\.?|adwokat|r\\.?\\s*pr\\.?|radca\\s+prawny)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))|[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+(?:-[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+)?\\s+[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+(?:-[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+)?\\s*[-–]\\s*(?i:adwokat|radca\\s+prawny)|[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+(?:-[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+)?\\s+[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+(?:-[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+)?\\s*\\(\\s*(?i:adwokat|radca\\s+prawny|pracownik)|(?i:adw\\.?|ADW\\.?)\\s*\\n\\s*[A-ZĄĆĘŁŃÓŚŹŻ]{2,}\\s*\\n\\s*[A-ZĄĆĘŁŃÓŚŹŻ]{2,}|(?:^|\\n)\\s*([A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+(?:-[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+)?\\s+[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+(?:-[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+)?)\\s*(?=\\n|$))"
     fields:
       - key: imie_nazwisko
         extractors:
