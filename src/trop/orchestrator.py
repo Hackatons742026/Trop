@@ -67,6 +67,33 @@ def _maybe_write_evidence(
         logger.warning("Evidence sidecar failed for %s: %s", pdf, exc)
 
 
+def build_payload(
+    document: Document,
+    *,
+    classes: tuple[ClassSpec, ...],
+    negatives: Any,
+) -> tuple[str, dict[str, Any]]:
+    """Classify + extract an ingested Document → (class_id, payload to write).
+
+    An empty payload means the file gets exactly ``{}``.
+    """
+    result = classify_document(document, classes=classes, negatives=negatives)
+    class_id = result.class_id
+    spec = _class_index(classes).get(class_id)
+    if class_id == OTHER or spec is None:
+        document.doc_class = OTHER
+        return OTHER, {}
+    payload = extract_document(document, spec)
+    # Optional LLM assist (profile none / missing key → payload unchanged).
+    payload = maybe_assist(
+        payload,
+        document_text=document_text([p.text for p in document.pages]),
+        class_id=class_id,
+    )
+    # Schema-valid null-filled objects only; invalid → {}.
+    return class_id, validated_or_empty(payload, spec.schema, validator=spec.validator)
+
+
 def process_one_pdf(
     pdf: Path,
     *,
@@ -93,30 +120,11 @@ def process_one_pdf(
             ocr=ocr,
             max_pages=max_pages,
         )
-        result = classify_document(document, classes=classes, negatives=negatives)
-        class_id = result.class_id
-        by_id = _class_index(classes)
-        if class_id == OTHER or class_id not in by_id:
+        class_id, payload = build_payload(document, classes=classes, negatives=negatives)
+        if payload:
+            write_json(json_path, payload)
+        else:
             write_empty_json(json_path)
-            document.doc_class = OTHER
-            _maybe_write_evidence(evidence_dir, pdf, input_dir, document, OTHER)
-            return pdf, json_path, None, document, OTHER
-
-        spec = by_id[class_id]
-        payload = extract_document(document, spec)
-        # Optional LLM assist (profile none / missing key → payload unchanged).
-        payload = maybe_assist(
-            payload,
-            document_text=document_text([p.text for p in document.pages]),
-            class_id=class_id,
-        )
-        # Schema-valid null-filled objects only; invalid → {}.
-        payload = validated_or_empty(payload, spec.schema, validator=spec.validator)
-        if not payload:
-            write_empty_json(json_path)
-            _maybe_write_evidence(evidence_dir, pdf, input_dir, document, class_id)
-            return pdf, json_path, None, document, class_id
-        write_json(json_path, payload)
         _maybe_write_evidence(evidence_dir, pdf, input_dir, document, class_id)
         return pdf, json_path, None, document, class_id
     except Exception as exc:  # noqa: BLE001 — isolate per file
