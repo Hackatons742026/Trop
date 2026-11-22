@@ -1,0 +1,46 @@
+# TROP application defaults (overridable via env / CLI).
+paths:
+  input_dir: input
+  output_dir: output
+  # Evidence sidecars are OFF by default. Enable only via CLI `--evidence DIR`
+  # or env `TROP_EVIDENCE_DIR` / `paths.evidence_dir` set to a real path.
+  evidence_dir: null
+
+# Concurrent PDF workers. Default 2 matches the 2 vCPU judge VM.
+# Null → max(1, cpu_count) when cpu<=2, else max(1, cpu//2).
+# RapidOCR inference is process-wide locked (see ocr notes), so workers>1 is safe.
+workers: 2
+
+# Render DPI for OCR pages (capped by max_dpi).
+dpi: 200
+max_dpi: 250
+
+# Hard cap on pages ingested per PDF (remaining pages skipped).
+max_pages: 40
+
+ocr:
+  # Run RapidOCR only when the PDF text layer is empty/unusable.
+  enabled: true
+  min_chars: 40
+  min_printable_ratio: 0.9
+  # Cap how many weak pages get OCR even if max_pages is higher.
+  max_pages: 20
+  # Engine downloads ONNX models on first use; Dockerfile bakes them via
+  # `rapidocr download_models` + warm init (see tools/bake_ocr_models.sh).
+  # Thread-safety: all RapidOCR calls share one process lock in
+  # trop.ingest.ocr — do not remove that lock when raising workers.
+  # Alternative: set workers: 1 if you bypass the lock for experiments.
+  engine: rapidocr
+  backend: onnxruntime
+
+# Optional LLM assist — see config/llm.yaml (default_profile: none).
+# Env overrides: TROP_LLM__* ; keys only in /opt/solution/.env (never git).
+llm:
+  enabled: false
+  base_url: null
+  api_key: null
+  model: null
+  timeout_s: 30
+
+logging:
+  level: INFO
