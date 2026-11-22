@@ -12,6 +12,7 @@ from trop.normalize.fns import (
     iban_as_printed,
     krs_pad10,
     nominative,
+    person_name,
     strip_titles,
     ted_number,
 )
@@ -28,6 +29,7 @@ __all__ = [
     "iban_as_printed",
     "krs_pad10",
     "nominative",
+    "person_name",
     "strip_titles",
     "ted_number",
 ]

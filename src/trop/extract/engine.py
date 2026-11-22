@@ -97,6 +97,19 @@ def _extract_list_item(
     return item
 
 
+def _is_duplicate_person(items: list[dict[str, Any]], item: dict[str, Any]) -> bool:
+    """True when ``item`` repeats an ``imie_nazwisko`` already in ``items``."""
+    name = item.get("imie_nazwisko")
+    if not isinstance(name, str) or not name:
+        return False
+    key = name.casefold()
+    for prev in items:
+        prev_name = prev.get("imie_nazwisko")
+        if isinstance(prev_name, str) and prev_name.casefold() == key:
+            return True
+    return False
+
+
 def _norm_firm_label(label: str) -> str:
     """Strip trailing punctuation but keep internal dots (``sp. z o.o.``)."""
     return label.strip().strip(":;").strip()
@@ -164,9 +177,12 @@ def _extract_list(text: str, blocks: dict[str, str], lst: ListSpec) -> list[dict
                 from trop.normalize.fns import collapse_ws
 
                 _set_nested_item(item, "data.nazwa", collapse_ws(label.strip().rstrip(".,;")))
-            # Avoid empty-only items
-            if any(v is not None and v != [] for v in _leaf_values(item)):
-                items.append(item)
+            # Avoid empty-only items and duplicate person names in one list.
+            if not any(v is not None and v != [] for v in _leaf_values(item)):
+                continue
+            if _is_duplicate_person(items, item):
+                continue
+            items.append(item)
         if items:
             return items
         # No item matches → one item from the whole list scope (single mocodawca).

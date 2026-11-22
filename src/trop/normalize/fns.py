@@ -259,6 +259,29 @@ def _heuristic_nominative_token(token: str) -> str:
     return token
 
 
+def person_name(value: Any) -> str | None:
+    """Collapse whitespace, strip titles, drop non-name noise, Title-Case tokens."""
+    text = strip_titles(value)
+    if not text:
+        return None
+    if re.match(
+        r"(?i)^(signature|dokument|kancelaria|za\b|mocodawc|"
+        r"pe[łl]nomocnictwo|weryfik|medicor|asterion)\b",
+        text,
+    ):
+        return None
+    parts = [p for p in text.split() if p and not p.startswith("(")]
+    if len(parts) < 2:
+        return None
+    fixed: list[str] = []
+    for part in parts[:3]:  # at most first + last (+ hyphenated last)
+        if "-" in part:
+            fixed.append("-".join(s[:1].upper() + s[1:].lower() for s in part.split("-") if s))
+        else:
+            fixed.append(part[:1].upper() + part[1:].lower())
+    return collapse_ws(" ".join(fixed))
+
+
 def nominative(value: Any) -> str | None:
     """Best-effort person name → nominative. Morfeusz if available, else light heuristics."""
     text = strip_titles(value)
@@ -289,6 +312,7 @@ NORMALIZERS: dict[str, Callable[[Any], Any]] = {
     "ted_number": ted_number,
     "strip_titles": strip_titles,
     "nominative": nominative,
+    "person_name": person_name,
 }
 
 
