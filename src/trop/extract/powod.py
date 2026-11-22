@@ -9,28 +9,30 @@ from trop.registry.loader import load_czynnosc_powod_dict
 
 # Longer / more specific phrases first.
 _PHRASE_TO_ID: tuple[tuple[str, int], ...] = (
+    # Omissions / negations before positive acts (otherwise "nie wykluczył" → 3).
     (r"zaniechanie\s+unieważnienia\s+postępowania", 10),
+    (r"zaniecha\w*\s+unieważnienia", 10),
+    (r"zaniechanie\s+wykluczenia\s+wykonawcy", 8),
+    (r"nie\s+wyklucz\w*", 8),
+    (r"zaniechanie\s+odrzucenia\s+oferty", 7),
+    (r"nie\s+odrzuc\w*", 7),
     (r"decyzj\w*\s+o\s+unieważnieniu\s+postępowania", 9),
     (r"unieważnieni\w*\s+postępowania", 9),
     # Narrative filings: "Zamawiający … unieważnił postępowanie" (incl. OCR typos).
     (r"unieważni\w*\s+postępowanie", 9),
-    (r"zaniechanie\s+wykluczenia\s+wykonawcy", 8),
-    (r"zaniechanie\s+odrzucenia\s+oferty", 7),
     (r"odpowiedzi/?wyjaśnienia\s+do\s+SWZ", 6),
     (r"wyjaśnieni\w*\s+do\s+SWZ", 6),
     (r"odpowiedzi\s+do\s+SWZ", 6),
-    (r"modyfikacj\w*\s+treści\s+SWZ", 5),
+    (r"modyfikacj\w*\s+(?:treści\s+)?SWZ", 5),
     (r"publikacj\w*\s+specyfikacji\s+warunków\s+zamówienia", 4),
     (r"specyfikacj\w*\s+warunków\s+zamówienia", 4),
-    # Do not map bare "SWZ" → id 4; require longer phrases above.
     (r"projektowane\s+postanowienia\s+umowy", 12),
     (r"ogłoszeni\w*\s+wyboru\s+oferty", 2),
     (r"decyzj\w*\s+o\s+wykluczeniu\s+wykonawcy", 3),
-    (r"wykluczy\w*\s+wykonawc", 3),
-    (r"wykluczeni\w*\s+wykonawcy", 3),
+    (r"wyklucz\w*\s+wykonawc", 3),
+    (r"wyklucz\w*\s+z\s+postępowania", 3),
     (r"decyzj\w*\s+o\s+odrzuceniu\s+oferty", 1),
-    (r"odrzuci\w*\s+ofert", 1),
-    (r"odrzuceni\w*\s+oferty", 1),
+    (r"odrzuc\w*\s+ofert", 1),
     # OPZ last: appeals often mention it in later zarzuty without it being the act.
     (r"opis\s+przedmiotu\s+zamówienia", 11),
     (r"\bOPZ\b", 11),

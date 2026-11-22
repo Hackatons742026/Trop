@@ -55,7 +55,16 @@ lists:
       - key: data.nazwa
         extractors:
           - type: regex
-            pattern: "(?i)(?:mocodawca|spółka|firma)\\s*[:\\-]?\\s*([^\\n]{3,200})"
+            # "Mocodawcą jest Belmoria Rozwiązania S.A., ul. …"
+            pattern: "(?i)mocodawc\\w*\\s+jest\\s+([^,\\n]{3,120})"
+            group: 1
+            normalize: [collapse_ws, strip_titles]
+          - type: regex
+            pattern: "(?i)działając\\s+w\\s+imieniu\\s+([^,\\n]{3,120})"
+            group: 1
+            normalize: [collapse_ws, strip_titles]
+          - type: regex
+            pattern: "(?i)(?:mocodawca|spółka|firma)\\s*[:\\-]?\\s*([^,\\n]{3,120})"
             group: 1
             normalize: [collapse_ws, strip_titles]
           # Case-sensitive on purpose: [A-Z…] must mean an uppercase initial, so
