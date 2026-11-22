@@ -1,0 +1,44 @@
+# Virtual env
+.venv/
+venv/
+env/
+
+# Local secrets / env
+.env
+.env.local
+
+# Runtime data & outputs (keep placeholders via .gitkeep)
+data/
+output/*
+!output/.gitkeep
+evidence/*
+!evidence/.gitkeep
+input/*
+!input/.gitkeep
+eval/reports/*
+!eval/reports/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.cache/
+*.egg
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# OCR / model caches (RapidOCR downloads models on first run)
+.rapidocr/
+*.onnx
