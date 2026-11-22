@@ -1,0 +1,265 @@
+"""Pure normaliser functions. Missing/unparseable → None (never invent)."""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Callable, Sequence
+from datetime import date, datetime
+from typing import Any
+
+# Optional Morfeusz2 — used when installed; otherwise suffix heuristics.
+try:
+    import morfeusz2  # type: ignore
+
+    _MORFEUSZ = morfeusz2.Morfeusz()
+except Exception:  # noqa: BLE001 — optional dependency
+    _MORFEUSZ = None
+
+_TITLE_PREFIXES = re.compile(
+    r"(?i)^\s*(?:"
+    r"adw\.?|adv\.?|r\.\s*pr\.?|radca\s+prawny|aplikant(?:ka)?|"
+    r"mgr|inż\.?|dr|prof\.?|pani|pan|mec\."
+    r")\s+"
+)
+
+_WS = re.compile(r"\s+")
+
+
+def collapse_ws(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = _WS.sub(" ", str(value)).strip()
+    return text or None
+
+
+def digits_only(value: Any) -> str | None:
+    if value is None:
+        return None
+    digits = re.sub(r"\D+", "", str(value))
+    return digits or None
+
+
+def krs_pad10(value: Any) -> str | None:
+    digits = digits_only(value)
+    if not digits:
+        return None
+    if len(digits) > 10:
+        digits = digits[-10:]
+    return digits.zfill(10)
+
+
+def date_pl(value: Any) -> str | None:
+    """Parse PL / ISO dates → ``YYYY-MM-DD``; fail → None."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    text = collapse_ws(value)
+    if not text:
+        return None
+    # Strip trailing year marker "r." / "r" only (do not delete letters inside months).
+    text = re.sub(r"(?i)\s*r\.?\s*$", "", text).strip(" .")
+    # ISO already
+    m = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", text)
+    if m:
+        try:
+            return date(int(m.group(1)), int(m.group(2)), int(m.group(3))).isoformat()
+        except ValueError:
+            return None
+    m = re.fullmatch(r"(\d{1,2})[./-](\d{1,2})[./-](\d{4})", text)
+    if m:
+        d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        try:
+            return date(y, mo, d).isoformat()
+        except ValueError:
+            return None
+    # Day-month-year with words: 13 października 2025
+    months = {
+        "stycznia": 1,
+        "lutego": 2,
+        "marca": 3,
+        "kwietnia": 4,
+        "maja": 5,
+        "czerwca": 6,
+        "lipca": 7,
+        "sierpnia": 8,
+        "września": 9,
+        "października": 10,
+        "listopada": 11,
+        "grudnia": 12,
+    }
+    m = re.fullmatch(
+        r"(\d{1,2})\s+([A-Za-ząćęłńóśźżĄĆĘŁŃÓŚŹŻ]+)\s+(\d{4})",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if m:
+        month = months.get(m.group(2).lower())
+        if month:
+            try:
+                return date(int(m.group(3)), month, int(m.group(1))).isoformat()
+            except ValueError:
+                return None
+    return None
+
+
+def amount_pl(value: Any) -> float | None:
+    """Parse Polish amounts (``1 234,56`` / ``1234.56``) → float."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    text = collapse_ws(value)
+    if not text:
+        return None
+    text = re.sub(r"(?i)\b(?:PLN|zł|zl)\b", "", text).strip()
+    text = text.replace(" ", "").replace("\u00a0", "")
+    if not text:
+        return None
+    if "," in text and "." in text:
+        # 1.234,56 → European
+        text = text.replace(".", "").replace(",", ".")
+    elif "," in text:
+        text = text.replace(",", ".")
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def iban_as_printed(value: Any) -> str | None:
+    """Keep IBAN/account as printed (preserve PL prefix and internal spacing style lightly).
+
+    Collapses runs of whitespace to single spaces but does **not** strip the PL prefix.
+    """
+    text = collapse_ws(value)
+    if not text:
+        return None
+    # Keep letters/digits/spaces; drop odd punctuation from OCR.
+    cleaned = re.sub(r"[^A-Za-z0-9 ]+", "", text)
+    cleaned = collapse_ws(cleaned)
+    return cleaned
+
+
+def bzp_number(value: Any) -> str | None:
+    """Normalise BZP to ``YYYY/BZP########`` (optional ``/##``), no spaces."""
+    text = collapse_ws(value)
+    if not text:
+        return None
+    text = re.sub(r"\s+", "", text.upper())
+    m = re.search(r"(\d{4})/BZP(\d{5,12})(?:/(\d{1,3}))?", text)
+    if not m:
+        return None
+    out = f"{m.group(1)}/BZP{m.group(2)}"
+    if m.group(3):
+        out += f"/{m.group(3)}"
+    return out
+
+
+def ted_number(value: Any) -> str | None:
+    """Normalise TED to ``NNNNNN-YYYY`` (from ``NNNNNN-YYYY`` or ``YYYY/S ###-NNNNNN``)."""
+    text = collapse_ws(value)
+    if not text:
+        return None
+    text = re.sub(r"\s+", "", text)
+    m = re.fullmatch(r"(\d{5,7})-(\d{4})", text)
+    if m:
+        return f"{m.group(1)}-{m.group(2)}"
+    m = re.search(r"(\d{4})/S(\d{1,4})-(\d{5,7})", text, flags=re.IGNORECASE)
+    if m:
+        return f"{m.group(3)}-{m.group(1)}"
+    m = re.search(r"(\d{5,7})-(\d{4})", text)
+    if m:
+        return f"{m.group(1)}-{m.group(2)}"
+    return None
+
+
+def strip_titles(value: Any) -> str | None:
+    text = collapse_ws(value)
+    if not text:
+        return None
+    prev = None
+    while prev != text:
+        prev = text
+        text = _TITLE_PREFIXES.sub("", text).strip(" ,;-")
+    return text or None
+
+
+def _morfeusz_nominative(token: str) -> str:
+    assert _MORFEUSZ is not None
+    analyses = _MORFEUSZ.analyse(token)
+    # analyses: list of (start, end, (forma, lemat, tag, ...))
+    lemmas: list[str] = []
+    for item in analyses:
+        interp = item[2]
+        lemma = interp[1]
+        tag = interp[2] if len(interp) > 2 else ""
+        if "subst" in tag or "name" in tag or True:
+            # Prefer lemma base (before :)
+            base = lemma.split(":")[0]
+            lemmas.append(base)
+    if lemmas:
+        # Prefer lemma matching case of input's first letter style
+        return lemmas[0]
+    return token
+
+
+def _heuristic_nominative_token(token: str) -> str:
+    """Lightweight surname case fold when Morfeusz is unavailable."""
+    low = token.lower()
+    if low.endswith("skiej"):
+        return token[: -len("skiej")] + "ska"
+    if low.endswith("ckiej"):
+        return token[: -len("ckiej")] + "cka"
+    if low.endswith("skiego"):
+        return token[: -len("skiego")] + "ski"
+    if low.endswith("ckiego"):
+        return token[: -len("ckiego")] + "cki"
+    return token
+
+
+def nominative(value: Any) -> str | None:
+    """Best-effort person name → nominative. Morfeusz if available, else light heuristics."""
+    text = strip_titles(value)
+    if not text:
+        return None
+    parts = text.split()
+    out: list[str] = []
+    for part in parts:
+        if _MORFEUSZ is not None:
+            try:
+                out.append(_morfeusz_nominative(part))
+                continue
+            except Exception:  # noqa: BLE001
+                pass
+        out.append(_heuristic_nominative_token(part))
+    return collapse_ws(" ".join(out))
+
+
+NORMALIZERS: dict[str, Callable[[Any], Any]] = {
+    "collapse_ws": collapse_ws,
+    "digits_only": digits_only,
+    "krs_pad10": krs_pad10,
+    "date_pl": date_pl,
+    "amount_pl": amount_pl,
+    "iban_as_printed": iban_as_printed,
+    "bzp_number": bzp_number,
+    "ted_number": ted_number,
+    "strip_titles": strip_titles,
+    "nominative": nominative,
+}
+
+
+def apply_normalizers(value: Any, names: Sequence[str]) -> Any:
+    """Apply named normalisers in order; first None aborts to None."""
+    current = value
+    for name in names:
+        fn = NORMALIZERS.get(name)
+        if fn is None:
+            continue
+        current = fn(current)
+        if current is None:
+            return None
+    return current

@@ -1,0 +1,88 @@
+"""Unit tests for normaliser functions."""
+
+from __future__ import annotations
+
+import pytest
+
+from trop.normalize import (
+    amount_pl,
+    apply_normalizers,
+    bzp_number,
+    collapse_ws,
+    date_pl,
+    digits_only,
+    iban_as_printed,
+    krs_pad10,
+    nominative,
+    strip_titles,
+    ted_number,
+)
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("13.10.2025", "2025-10-13"),
+        ("13/10/2025", "2025-10-13"),
+        ("2025-10-13", "2025-10-13"),
+        ("1 stycznia 2025", "2025-01-01"),
+        ("13 października 2025 r.", "2025-10-13"),
+        ("", None),
+        (None, None),
+        ("nie-data", None),
+    ],
+)
+def test_date_pl(raw: object, expected: str | None) -> None:
+    assert date_pl(raw) == expected
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("1 234,56", 1234.56),
+        ("1234.56", 1234.56),
+        ("50,00 PLN", 50.0),
+        ("10.00", 10.0),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_amount_pl(raw: object, expected: float | None) -> None:
+    assert amount_pl(raw) == expected
+
+
+def test_iban_as_printed_keeps_pl() -> None:
+    assert iban_as_printed("PL 61 0101 0101 0008 1362 2310 0000") == (
+        "PL 61 0101 0101 0008 1362 2310 0000"
+    )
+    assert iban_as_printed("60101010100081362231000000") == "60101010100081362231000000"
+
+
+def test_digits_only_and_krs() -> None:
+    assert digits_only("999-067-80-35") == "9990678035"
+    assert krs_pad10("12345") == "0000012345"
+    assert krs_pad10("9999669444") == "9999669444"
+
+
+def test_bzp_and_ted() -> None:
+    assert bzp_number("2026 / BZP 00999778") == "2026/BZP00999778"
+    assert bzp_number("2026/BZP00999778/01") == "2026/BZP00999778/01"
+    assert ted_number("999073-2026") == "999073-2026"
+    assert ted_number("2025/S 112-383751") == "383751-2025"
+
+
+def test_collapse_and_titles() -> None:
+    assert collapse_ws("  a   b  ") == "a b"
+    assert strip_titles("adw. Bartosz Szymanski") == "Bartosz Szymanski"
+    assert strip_titles("r. pr. Anna Nowak") == "Anna Nowak"
+
+
+def test_nominative_passthrough() -> None:
+    # Heuristic / Morfeusz — at least does not invent empty
+    assert nominative("Bartosz Szymanski") == "Bartosz Szymanski"
+    assert nominative(None) is None
+
+
+def test_apply_normalizers_chain() -> None:
+    assert apply_normalizers("  13.10.2025  ", ["collapse_ws", "date_pl"]) == "2025-10-13"
+    assert apply_normalizers("xxx", ["date_pl"]) is None
