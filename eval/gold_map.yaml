@@ -1,0 +1,19 @@
+# Optional explicit pred→gold relative-path remaps (under --pred / --gold roots).
+# Default pairing: same relative path (stem.json ↔ stem.json).
+#
+# Hold-out convention (documented for reports):
+#   przyklad_46 … przyklad_60  → hold-out (flagged in trop eval --report)
+#   przyklad_01 … przyklad_45  → train / tune
+#   dane/negatywne/**          → expect {}
+#
+# Example remap (when gold stem differs from pred stem):
+# mappings:
+#   "przyklad_10/potwierdzenie_przelewu.json": "przyklad_10/przelew.json"
+
+mappings: {}
+
+holdout:
+  # Case numbers flagged as hold-out in eval reports (inclusive).
+  case_min: 46
+  case_max: 60
+  pattern: "przyklad_(\\d+)"
