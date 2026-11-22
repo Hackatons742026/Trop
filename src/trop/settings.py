@@ -5,10 +5,12 @@ from __future__ import annotations
 import os
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 import yaml
 from pydantic import BaseModel, Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic.fields import FieldInfo
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 
 def _default_workers() -> int:
@@ -51,10 +53,22 @@ class LoggingSettings(BaseModel):
     level: str = "INFO"
 
 
+class _AppYamlSource(PydanticBaseSettingsSource):
+    """``config/app.yaml`` as a settings source, ranked below env and ``.env``."""
+
+    def get_field_value(self, field: FieldInfo, field_name: str) -> tuple[Any, str, bool]:
+        # Unused: __call__ returns the whole mapping at once.
+        return None, field_name, False
+
+    def __call__(self) -> dict[str, Any]:
+        return settings_from_yaml(load_yaml_config())
+
+
 class Settings(BaseSettings):
     """Runtime settings for TROP.
 
-    Precedence: CLI args > env (TROP_*) > config/app.yaml > code defaults.
+    Precedence: CLI args / init kwargs > env (TROP_*) > .env > config/app.yaml
+    > code defaults.
     """
 
     model_config = SettingsConfigDict(
@@ -77,6 +91,25 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     ocr: OcrSettings = Field(default_factory=OcrSettings)
     llm: LlmSettings = Field(default_factory=LlmSettings)
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        # YAML used to be passed as init kwargs, which outrank env vars, so
+        # every TROP_* override (TROP_WORKERS, TROP_EVIDENCE_DIR, …) was ignored.
+        return (
+            init_settings,
+            env_settings,
+            dotenv_settings,
+            _AppYamlSource(settings_cls),
+            file_secret_settings,
+        )
 
     @field_validator("workers", mode="before")
     @classmethod
@@ -142,22 +175,21 @@ def settings_from_yaml(yaml_data: dict) -> dict:
     logging = yaml_data.get("logging") or {}
     if "level" in logging:
         kwargs["log_level"] = logging["level"]
+    # Nested sections stay plain dicts so env vars like TROP_OCR__ENABLED
+    # override single keys instead of replacing the whole section.
     ocr = yaml_data.get("ocr") or {}
     if ocr:
-        kwargs["ocr"] = OcrSettings.model_validate(ocr)
+        kwargs["ocr"] = dict(ocr)
     llm = yaml_data.get("llm") or {}
     if llm:
-        kwargs["llm"] = LlmSettings.model_validate(llm)
+        kwargs["llm"] = dict(llm)
     return kwargs
 
 
 @lru_cache
 def get_settings() -> Settings:
-    """Cached settings: YAML first, then env overrides via BaseSettings."""
-    yaml_data = load_yaml_config()
-    base = settings_from_yaml(yaml_data)
-    # BaseSettings still applies env on top of these defaults.
-    return Settings(**base)
+    """Cached settings (init > env > .env > config/app.yaml > defaults)."""
+    return Settings()
 
 
 def clear_settings_cache() -> None:
