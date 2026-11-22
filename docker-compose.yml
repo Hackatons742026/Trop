@@ -1,0 +1,72 @@
+# TROP — HackNation Odwołania2json
+#
+# Official batch (process input → output, then exit):
+#   docker compose run --rm trop
+#
+# Container WORKDIR /opt/solution maps to the Azure VM layout.
+# Host dirs ./input ./output ./evidence ./classes ./config are mounted RW.
+#
+# Batch service runs as root by default so mounted ./output and ./evidence are
+# writable on Azure (host uid often ≠ image uid 1000). Override with
+# TROP_UID / TROP_GID if you need a specific host user.
+
+services:
+  trop:
+    build: .
+    image: trop:latest
+    working_dir: /opt/solution
+    user: "${TROP_UID:-0}:${TROP_GID:-0}"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TROP_CONFIG: /opt/solution/config/app.yaml
+      TROP_WORKERS: ${TROP_WORKERS:-2}
+    volumes:
+      - ./input:/opt/solution/input
+      - ./output:/opt/solution/output
+      - ./evidence:/opt/solution/evidence
+      - ./classes:/opt/solution/classes
+      - ./config:/opt/solution/config
+    # Non-interactive batch; compose run --rm is the intended invocation.
+    # Explicit --evidence for the judge path (config default is null).
+    command:
+      - trop
+      - run
+      - --input
+      - /opt/solution/input
+      - --output
+      - /opt/solution/output
+      - --evidence
+      - /opt/solution/evidence
+      - --workers
+      - "2"
+
+  # Streamlit GUI (app/gui.py) — same pipeline as CLI, port 8080.
+  # Start: docker compose up -d gui
+  gui:
+    build: .
+    image: trop:latest
+    working_dir: /opt/solution
+    user: "${TROP_UID:-0}:${TROP_GID:-0}"
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TROP_CONFIG: /opt/solution/config/app.yaml
+    volumes:
+      - ./input:/opt/solution/input
+      - ./output:/opt/solution/output
+      - ./evidence:/opt/solution/evidence
+      - ./classes:/opt/solution/classes
+      - ./config:/opt/solution/config
+      - ./app:/opt/solution/app
+    command:
+      - streamlit
+      - run
+      - app/gui.py
+      - --server.port=8080
+      - --server.address=0.0.0.0
