@@ -201,7 +201,7 @@ def extract_document(document: Document, spec: ClassSpec) -> dict[str, Any]:
                 source=TextSource.MIXED if document.pages else TextSource.EMPTY,
             )
         )
-    document.__dict__["_extracted_fields"] = document_fields
+    document.fields = document_fields
     return payload
 
 

@@ -103,9 +103,7 @@ def build_evidence_payload(
 ) -> dict[str, Any]:
     """Assemble sidecar JSON (source + per-field evidence)."""
     items: list[dict[str, Any]] = []
-    field_list = fields
-    if field_list is None:
-        field_list = list(document.__dict__.get("_extracted_fields") or [])
+    field_list = fields if fields is not None else document.fields
 
     for fv in field_list:
         ev = list(fv.evidence) if fv.evidence else []
