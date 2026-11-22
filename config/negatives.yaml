@@ -29,5 +29,7 @@ anchors:
     weight: 4
     note: "Unrelated commission materials"
 
-# If negative_score >= this and (best_class_score - negative_score) < margin → other.
+# If negative_score >= veto_threshold and
+# (best_class_score - negative_score) < veto_margin → other.
 veto_threshold: 5.0
+veto_margin: 2.0

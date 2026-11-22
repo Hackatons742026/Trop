@@ -71,7 +71,7 @@ def classify_text(
     margin = best_score - second_score
 
     # Hard veto: strong negatives without decisive positive class evidence.
-    if neg_score >= neg.veto_threshold and best_score - neg_score < 2.0:
+    if neg_score >= neg.veto_threshold and best_score - neg_score < neg.veto_margin:
         return ClassificationResult(
             class_id=OTHER,
             score=best_score,

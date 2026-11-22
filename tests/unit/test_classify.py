@@ -47,6 +47,20 @@ def test_classify_ooc_wyrok_returns_other() -> None:
     assert result.negative_score > 0
 
 
+def test_veto_margin_comes_from_config() -> None:
+    from trop.registry.loader import DetectKeyword, NegativesConfig
+
+    text = (FIXTURES / "odwolanie_smoke.txt").read_text(encoding="utf-8") + "\nNEGATYW_TEST\n"
+    anchor = (DetectKeyword(pattern="NEGATYW_TEST", weight=6.0),)
+    best = classify_text(text, negatives=NegativesConfig()).score
+    gap = best - 6.0  # best_class_score - negative_score
+
+    strict = NegativesConfig(anchors=anchor, veto_threshold=5.0, veto_margin=gap + 1)
+    lenient = NegativesConfig(anchors=anchor, veto_threshold=5.0, veto_margin=gap - 1)
+    assert classify_text(text, negatives=strict).class_id == OTHER
+    assert classify_text(text, negatives=lenient).class_id == "odwolanie"
+
+
 def test_classify_ignores_filename_semantics() -> None:
     """Even if text looks like a transfer, class comes from content keywords."""
     # Filename is irrelevant — function has no path argument.

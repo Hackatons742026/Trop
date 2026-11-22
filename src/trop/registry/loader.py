@@ -110,6 +110,8 @@ class ClassSpec:
 class NegativesConfig:
     anchors: tuple[DetectKeyword, ...] = ()
     veto_threshold: float = 5.0
+    # Veto applies when best_class_score - negative_score < veto_margin.
+    veto_margin: float = 2.0
 
 
 def default_classes_dir() -> Path:
@@ -368,6 +370,7 @@ def load_negatives(path: str | None = None) -> NegativesConfig:
     return NegativesConfig(
         anchors=anchors,
         veto_threshold=float(data.get("veto_threshold", 5.0)),
+        veto_margin=float(data.get("veto_margin", 2.0)),
     )
 
 
