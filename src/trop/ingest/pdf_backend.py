@@ -71,16 +71,19 @@ class PdfiumBackend:
                 page.close()
 
     def extract_text(self, index: int) -> str:
+        """Page text with ``\\n`` line breaks (PDFium emits ``\\r\\n``)."""
         with _PDFIUM_LOCK:
             page = self._doc[index]
             try:
                 textpage = page.get_textpage()
                 try:
-                    return textpage.get_text_bounded() or ""
+                    text = textpage.get_text_bounded() or ""
                 finally:
                     textpage.close()
             finally:
                 page.close()
+        # Class patterns are written with \n; a stray \r breaks [ \t]*\n etc.
+        return text.replace("\r\n", "\n").replace("\r", "\n")
 
     def render_page(self, index: int, dpi: int) -> RenderedPage:
         with _PDFIUM_LOCK:
