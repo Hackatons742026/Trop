@@ -1,0 +1,33 @@
+# Global negative anchors: content that indicates out-of-class / look-alike docs.
+# Matching these (without strong positive class evidence) → classify as other → {}.
+anchors:
+  - pattern: "(?i)wyrok\\s+krajowej\\s+izby\\s+odwoławczej"
+    weight: 8
+    note: "KIO judgment (not an appeal filing)"
+  - pattern: "(?i)\\bwyrok\\b.{0,40}\\bKIO\\b"
+    weight: 6
+    note: "KIO wyrok shorthand"
+  - pattern: "(?i)ogłoszenie\\s+o\\s+zamówieniu"
+    weight: 5
+    note: "TED/BZP procurement notice"
+  - pattern: "(?i)Dziennik\\s+Urzędowy\\s+Unii\\s+Europejskiej"
+    weight: 6
+    note: "OJEU / TED notice"
+  - pattern: "(?i)\\bTED\\b.{0,20}eTendering|eNotices"
+    weight: 5
+    note: "TED portal artefacts"
+  - pattern: "(?i)Biuletyn\\s+Zamówień\\s+Publicznych"
+    weight: 5
+    note: "BZP notice body"
+  - pattern: "(?i)decyzja\\s+ministra"
+    weight: 4
+    note: "Ministerial decision look-alike"
+  - pattern: "(?i)JPK[_\\s-]?FA"
+    weight: 5
+    note: "JPK_FA brochure / tax schema"
+  - pattern: "(?i)komisja\\s+ds\\.\\s*regulacji"
+    weight: 4
+    note: "Unrelated commission materials"
+
+# If negative_score >= this and (best_class_score - negative_score) < margin → other.
+veto_threshold: 5.0
