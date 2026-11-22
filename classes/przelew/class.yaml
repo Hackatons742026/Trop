@@ -174,8 +174,8 @@ fields:
   - path: przelew_bankowy.tytul
     extractors:
       - type: regex
-        # OCR: Tytuł / Tytul / Tytut — stop before Typ/Kwota column headers.
-        pattern: "(?i)Tytu[łltu]\\s*:\\s*((?:(?!\\n\\s*(?:Typ\\s+transakcji|Kwota\\b|Status\\b)).)+)"
+        # OCR: Tytuł / Tytul / Tytut — multi-line until Typ/Kwota/IDENTYFIKATOR.
+        pattern: "(?is)Tytu[łltu]\\s*:\\s*((?:(?!\\n\\s*(?:Typ\\s+transakcji|Kwota\\b|Status\\b|IDENTYFIKATOR|WALUTA\\b|-{3,}))[\\s\\S])+)"
         group: 1
         normalize: [collapse_ws]
       - type: label
