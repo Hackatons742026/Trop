@@ -195,3 +195,11 @@ def test_bare_swz_does_not_map_to_powod_4() -> None:
     assert map_text_to_powod_id("dotyczy SWZ") is None
     assert map_text_to_powod_id("specyfikacji warunków zamówienia") == 4
     assert map_text_to_powod_id("modyfikacji treści SWZ") == 5
+
+
+def test_powod_declensions_and_opz() -> None:
+    assert map_text_to_powod_id("czynności wyboru jako najkorzystniejszej oferty") == 2
+    assert map_text_to_powod_id("wyborze jako najkorzystniejszej oferty") == 2
+    assert map_text_to_powod_id("zaniechania odrzucenia oferty") == 7
+    assert map_text_to_powod_id("projektowanych postanowień umowy") == 12
+    assert map_text_to_powod_id("Przedmiotu Zamówienia (OPZ)") == 11

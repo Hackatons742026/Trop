@@ -10,11 +10,14 @@ from trop.normalize import (
     apply_normalizers,
     bzp_number,
     collapse_ws,
+    company_name,
     date_pl,
     digits_only,
     iban_as_printed,
     krs_pad10,
     nominative,
+    person_name,
+    place_name,
     strip_titles,
     ted_number,
 )
@@ -78,6 +81,15 @@ def test_digits_only_and_krs() -> None:
     assert digits_only("999-067-80-35") == "9990678035"
     assert krs_pad10("12345") == "0000012345"
     assert krs_pad10("9999669444") == "9999669444"
+    # OCR letter-O inside KRS digit run.
+    assert krs_pad10("9994328o29") == "9994328029"
+
+
+def test_person_and_place_ocr_repairs() -> None:
+    assert person_name("Lukasz Sosnowski") == "Łukasz Sosnowski"
+    assert person_name("Szymon Zawadżki") == "Szymon Zawadzki"
+    assert place_name("Lódź") == "Łódź"
+    assert company_name("Orbisol Budownictwo Sp. z 0.0.") == "Orbisol Budownictwo Sp. z o.o."
 
 
 def test_bzp_and_ted() -> None:

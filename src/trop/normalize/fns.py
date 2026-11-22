@@ -40,7 +40,9 @@ def digits_only(value: Any) -> str | None:
 
 
 def krs_pad10(value: Any) -> str | None:
-    digits = digits_only(value)
+    # OCR often substitutes Latin/Cyrillic "o" for digit zero inside KRS.
+    text = re.sub(r"[oOоО]", "0", str(value)) if value is not None else ""
+    digits = digits_only(text)
     if not digits:
         return None
     if len(digits) > 10:
@@ -242,6 +244,9 @@ _COMPANY_BOILERPLATE = re.compile(
 _COMPANY_TRAILING = re.compile(
     r"(?i)\s+prowadząc\w*\s+działalność\s+gospodarczą\s+pod\s+firmą\s*$"
 )
+_COMPANY_SEAT = re.compile(
+    r"(?i)\s+z\s+siedzibą\s+w\s+\S.*$"
+)
 
 
 def company_name(value: Any) -> str | None:
@@ -261,6 +266,9 @@ def company_name(value: Any) -> str | None:
         text,
     ).strip(" ,;-:")
     text = _COMPANY_TRAILING.sub("", text).strip(" ,;-:")
+    text = _COMPANY_SEAT.sub("", text).strip(" ,;-:")
+    # OCR: "Sp. z 0.0." / "Sp. z 0.o." → "Sp. z o.o."
+    text = re.sub(r"(?i)\bSp\.\s*z\s*[0o]\.\s*[0o]\.", "Sp. z o.o.", text)
     if not text or not text[:1].isupper():
         return None
     if re.match(
@@ -268,6 +276,9 @@ def company_name(value: Any) -> str | None:
         r"c\s*t\s*w\s*o\b|wskazuje\b|nie\s+może\b|może\s+ponieść\b)",
         text,
     ):
+        return None
+    # Domain-ish fragments are not firm names.
+    if re.search(r"(?i)\.(?:example|pl|com|eu)\b", text) and " " not in text.strip():
         return None
     return text or None
 
@@ -338,7 +349,7 @@ def person_name(value: Any) -> str | None:
         return None
     if re.match(
         r"(?i)^(signature|dokument|kancelaria|za\b|mocodawc|"
-        r"pe[łl]nomocnictwo|weryfik|medicor|asterion)\b",
+        r"pe[łl]nomocnictwo|odwo[łl]uj|weryfik|medicor|asterion)\b",
         text,
     ):
         return None
@@ -359,7 +370,25 @@ def person_name(value: Any) -> str | None:
             fixed.append("-".join(s[:1].upper() + s[1:].lower() for s in part.split("-") if s))
         else:
             fixed.append(part[:1].upper() + part[1:].lower())
-    return collapse_ws(" ".join(fixed))
+    # Frequent OCR: missing Polish Ł in given names / -ski surnames.
+    repaired: list[str] = []
+    for i, part in enumerate(fixed):
+        low = part.casefold()
+        if i == 0 and low == "lukasz":
+            repaired.append("Łukasz")
+        elif low.endswith("zki") and "ż" not in part.casefold() and low.endswith("dzki"):
+            # Zawadżki (OCR ż) is handled elsewhere; bare Zawadzki is already correct.
+            repaired.append(part)
+        else:
+            repaired.append(part)
+    # Zawadżki / Noważki → Zawadzki / Nowazki-style OCR ż for -dzki surnames.
+    out: list[str] = []
+    for part in repaired:
+        if re.search(r"(?i)dżki$", part):
+            out.append(re.sub(r"(?i)dżki$", "dzki", part))
+        else:
+            out.append(part)
+    return collapse_ws(" ".join(out))
 
 
 def nominative(value: Any) -> str | None:
@@ -380,6 +409,29 @@ def nominative(value: Any) -> str | None:
     return collapse_ws(" ".join(out))
 
 
+# Common OCR city misses (L/Ł, ó/o). Keys are casefolded.
+_PLACE_OCR: dict[str, str] = {
+    "lodz": "Łódź",
+    "lódź": "Łódź",
+    "lodź": "Łódź",
+    "krakow": "Kraków",
+    "wroclaw": "Wrocław",
+    "gdansk": "Gdańsk",
+    "poznan": "Poznań",
+    "bialystok": "Białystok",
+    "torun": "Toruń",
+}
+
+
+def place_name(value: Any) -> str | None:
+    """Collapse whitespace and repair a few frequent OCR city spellings."""
+    text = collapse_ws(value)
+    if not text:
+        return None
+    fixed = _PLACE_OCR.get(text.casefold())
+    return fixed or text
+
+
 NORMALIZERS: dict[str, Callable[[Any], Any]] = {
     "collapse_ws": collapse_ws,
     "digits_only": digits_only,
@@ -394,6 +446,7 @@ NORMALIZERS: dict[str, Callable[[Any], Any]] = {
     "company_name": company_name,
     "nominative": nominative,
     "person_name": person_name,
+    "place_name": place_name,
 }
 
 

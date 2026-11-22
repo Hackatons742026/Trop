@@ -10,11 +10,13 @@ from trop.registry.loader import load_czynnosc_powod_dict
 # Longer / more specific phrases first.
 _PHRASE_TO_ID: tuple[tuple[str, int], ...] = (
     # Omissions / negations before positive acts (otherwise "nie wykluczył" → 3).
-    (r"zaniechani[ue]\s+unieważnienia", 10),
+    (r"zaniechani[aue]\s+unieważnienia", 10),
     (r"zaniecha\w*\s+unieważnienia", 10),
-    (r"zaniechani[ue]\s+wykluczenia", 8),
+    (r"zaniechani[aue]\s+wykluczenia", 8),
     (r"nie\s+wyklucz\w*", 8),
-    (r"zaniechani[ue]\s+odrzucenia", 7),
+    # "zaniechania/zaniechanie/zaniechaniu odrzucenia" (genitive common in lists)
+    (r"zaniechani[aue]\s+odrzucenia", 7),
+    (r"zaniecha\w*\s+odrzucenia", 7),
     (r"nie\s+odrzuc\w*", 7),
     (r"decyzj\w*\s+o\s+unieważnieniu\s+postępowania", 9),
     (r"unieważnieni\w*\s+postępowania", 9),
@@ -37,12 +39,14 @@ _PHRASE_TO_ID: tuple[tuple[str, int], ...] = (
     (r"opublikowa\w*\s+Specyfikacj", 4),
     (r"opublikowa\w*\s+ogłoszenie\s+o\s+zamówieniu", 4),
     (r"specyfikacj\w*\s+warunków\s+zamówienia", 4),
-    (r"projektowane\s+postanowienia\s+umowy", 12),
+    (r"projektowan\w*\s+postanowie[nń]\w*", 12),
     (r"ogłoszeni\w*\s+wyboru\s+oferty", 2),
     (r"ogłosi\w*\s+wybór\s+oferty", 2),
-    (r"wyborze?\s+(?:jako\s+)?najkorzystniejszej", 2),
+    # wyboru / wybory / wyborze / czynności wyboru
+    (r"wybor(?:u|y|ze)\s+(?:jako\s+)?najkorzystniejszej", 2),
     (r"wyboru\s+najkorzystniejszej\s+oferty", 2),
-    (r"wyborze?\s+oferty", 2),
+    (r"czynno[sś]ci\s+wyboru", 2),
+    (r"wybor(?:u|y|ze)\s+oferty", 2),
     (r"decyzj\w*\s+o\s+wykluczeniu\s+wykonawcy", 3),
     (r"wyklucz\w*\s+(?:Odwołującego|wykonawc|z\s+postępowania|podmiotu)", 3),
     (r"poinformowa\w*.{0,40}wyklucz", 3),
@@ -50,6 +54,7 @@ _PHRASE_TO_ID: tuple[tuple[str, int], ...] = (
     (r"odrzuc\w*\s+ofert", 1),
     # OPZ last: appeals often mention it in later zarzuty without it being the act.
     (r"opis\s+przedmiotu\s+zamówienia", 11),
+    (r"przedmiotu\s+zamówienia\s*\(?\s*OPZ", 11),
     (r"opublikowa\w*\s+dokumenty\s+zamówienia", 11),
     (r"\bOPZ\b", 11),
 )

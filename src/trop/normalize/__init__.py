@@ -14,6 +14,7 @@ from trop.normalize.fns import (
     krs_pad10,
     nominative,
     person_name,
+    place_name,
     strip_titles,
     ted_number,
 )
@@ -32,6 +33,7 @@ __all__ = [
     "krs_pad10",
     "nominative",
     "person_name",
+    "place_name",
     "strip_titles",
     "ted_number",
 ]
