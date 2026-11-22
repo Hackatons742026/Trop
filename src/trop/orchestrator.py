@@ -80,9 +80,11 @@ def process_one_pdf(
     evidence_dir: Path | None = None,
 ) -> tuple[Path, Path | None, str | None, Document | None, str]:
     """Process a single PDF → JSON. Returns (pdf, json_path, err, document, class_id)."""
-    json_path = output_json_path(pdf, input_dir, output_dir)
+    json_path: Path | None = None
     class_id = OTHER
     try:
+        # Inside the try: a path error must fail this file, not the batch.
+        json_path = output_json_path(pdf, input_dir, output_dir)
         rel = relative_pdf_path(pdf, input_dir)
         document = ingest_document(
             pdf,
@@ -119,10 +121,11 @@ def process_one_pdf(
         return pdf, json_path, None, document, class_id
     except Exception as exc:  # noqa: BLE001 — isolate per file
         logger.exception("Failed processing %s: %s", pdf, exc)
-        try:
-            write_empty_json(json_path)
-        except Exception as write_exc:  # noqa: BLE001
-            logger.error("Could not write {} for %s: %s", pdf, write_exc)
+        if json_path is not None:
+            try:
+                write_empty_json(json_path)
+            except Exception as write_exc:  # noqa: BLE001
+                logger.error("Could not write {} for %s: %s", pdf, write_exc)
         return pdf, json_path, str(exc), None, OTHER
 
 
