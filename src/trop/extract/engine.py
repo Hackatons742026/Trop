@@ -213,6 +213,19 @@ def _finalize_list_items(path: str, items: list[dict[str, Any]]) -> list[dict[st
             for it in items:
                 if it.get("prowadzacy_postepowanie") is None:
                     it["prowadzacy_postepowanie"] = 0
+    if path == "mocodawca":
+        for it in items:
+            data = it.get("data")
+            if not isinstance(data, dict):
+                continue
+            # Sole trader: person name + NIP without KRS → osoba_fizyczna.
+            if (
+                data.get("typ") is None
+                and data.get("imie_nazwisko")
+                and data.get("nip")
+                and not data.get("krs")
+            ):
+                data["typ"] = "osoba_fizyczna"
     return items
 
 

@@ -109,8 +109,8 @@ lists:
             group: 1
             normalize: [collapse_ws, person_name, nominative]
           - type: regex
-            # E-sign only when the grant looks like a sole trader (NIP, no KRS nearby).
-            pattern: "(?i)(?=.*?\\bNIP\\b)(?!.*?\\bKRS\\b)(?:dokument\\s+podpisany\\s+przez)\\s+([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\-]+\\s+[A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\-]+)"
+            # E-sign on sole-trader scans (NIP present, no KRS in the grant chunk).
+            pattern: "(?is)(?=.*?\\bNIP\\b)(?!.*?\\bKRS\\b)dokument\\s+podpisany\\s+przez\\s+([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\-]+\\s+[A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\-]+)"
             group: 1
             normalize: [collapse_ws, person_name, nominative]
       # Natural-person cues first (a sole trader also has a NIP / firm name),

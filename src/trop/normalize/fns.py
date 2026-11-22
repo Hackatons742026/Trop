@@ -239,6 +239,10 @@ _COMPANY_BOILERPLATE = re.compile(
     r")"
 )
 
+_COMPANY_TRAILING = re.compile(
+    r"(?i)\s+prowadząc\w*\s+działalność\s+gospodarczą\s+pod\s+firmą\s*$"
+)
+
 
 def company_name(value: Any) -> str | None:
     """Strip leading PoA / appeal boilerplate from a captured firm name."""
@@ -256,6 +260,7 @@ def company_name(value: Any) -> str | None:
         "",
         text,
     ).strip(" ,;-:")
+    text = _COMPANY_TRAILING.sub("", text).strip(" ,;-:")
     if not text or not text[:1].isupper():
         return None
     if re.match(
