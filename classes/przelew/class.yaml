@@ -1,0 +1,87 @@
+id: przelew
+label: Potwierdzenie przelewu
+detect:
+  threshold: 6.0
+  margin: 2.0
+  keywords:
+    - { pattern: "(?i)potwierdzeni[ea]\\s+przelewu", weight: 5.0 }
+    - { pattern: "(?i)przelew\\s+bankowy", weight: 4.0 }
+    - { pattern: "(?i)\\bIBAN\\b|numer\\s+rachunku", weight: 2.0 }
+    - { pattern: "(?i)tytuł\\s+(?:płatności|przelewu|operacji)", weight: 2.5 }
+    - { pattern: "(?i)kwota\\s+(?:operacji|przelewu|transakcji)?", weight: 2.0 }
+    - { pattern: "(?i)data\\s+operacji", weight: 2.5 }
+    - { pattern: "(?i)z\\s+rachunku|na\\s+rachunek", weight: 2.0 }
+    - { pattern: "(?i)opłat[ay]\\s+(?:odwoławcz|skarbow)", weight: 1.5 }
+
+blocks:
+  - id: body
+    start: null
+    end: null
+
+fields:
+  - path: przelew_bankowy.data_operacji
+    extractors:
+      - type: label
+        labels: ["Data operacji", "Data księgowania", "Data przelewu", "Data transakcji"]
+        value_pattern: "(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4}|\\d{4}-\\d{2}-\\d{2})"
+        normalize: [date_pl]
+      - type: regex
+        pattern: "(?i)data\\s+(?:operacji|księgowania|przelewu|transakcji)\\s*[:\\-]?\\s*(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4}|\\d{4}-\\d{2}-\\d{2})"
+        group: 1
+        normalize: [date_pl]
+
+  - path: przelew_bankowy.kwota
+    extractors:
+      - type: label
+        labels: ["Kwota", "Kwota operacji", "Kwota przelewu", "Amount"]
+        value_pattern: "([\\d\\s]+[,.]\\d{2}|\\d+[.,]\\d{2}|\\d+)"
+        normalize: [amount_pl]
+      - type: regex
+        pattern: "(?i)kwota\\s*(?:operacji|przelewu|transakcji)?\\s*[:\\-]?\\s*([\\d\\s]+[,.]\\d{2})"
+        group: 1
+        normalize: [amount_pl]
+
+  - path: przelew_bankowy.na_rachunek
+    extractors:
+      - type: label
+        labels: ["Na rachunek", "Rachunek odbiorcy", "Konto odbiorcy", "Odbiorca"]
+        value_pattern: "((?:PL\\s*)?(?:\\d[\\d\\s]{10,40}\\d))"
+        normalize: [iban_as_printed]
+      - type: regex
+        pattern: "(?i)na\\s+rachunek\\s*[:\\-]?\\s*((?:PL\\s*)?(?:\\d[\\d\\s]{10,40}\\d))"
+        group: 1
+        normalize: [iban_as_printed]
+
+  - path: przelew_bankowy.z_rachunku
+    extractors:
+      - type: label
+        labels: ["Z rachunku", "Rachunek nadawcy", "Konto nadawcy", "Nadawca"]
+        value_pattern: "((?:PL\\s*)?(?:\\d[\\d\\s]{10,40}\\d))"
+        normalize: [iban_as_printed]
+      - type: regex
+        pattern: "(?i)z\\s+rachunku\\s*[:\\-]?\\s*((?:PL\\s*)?(?:\\d[\\d\\s]{10,40}\\d))"
+        group: 1
+        normalize: [iban_as_printed]
+
+  - path: przelew_bankowy.numer_transakcji
+    extractors:
+      - type: label
+        labels: ["Numer transakcji", "Nr transakcji", "ID transakcji", "Referencja"]
+        value_pattern: "([A-Z0-9][A-Z0-9\\-]{5,40})"
+        normalize: [collapse_ws]
+      - type: regex
+        pattern: "(?i)(?:numer|nr)\\s+transakcji\\s*[:\\-]?\\s*([A-Z0-9][A-Z0-9\\-]{5,40})"
+        group: 1
+        normalize: [collapse_ws]
+
+  - path: przelew_bankowy.tytul
+    extractors:
+      - type: label
+        labels: ["Tytuł", "Tytuł przelewu", "Tytuł płatności", "Tytuł operacji"]
+        value_pattern: "(.{5,400})"
+        stop_at: "(?i)(\\n\\s*[A-ZĄĆĘŁŃÓŚŹŻ][^:]{0,30}:|\\n\\s*$)"
+        normalize: [collapse_ws]
+      - type: regex
+        pattern: "(?i)tytuł\\s*(?:przelewu|płatności|operacji)?\\s*[:\\-]?\\s*([^\\n]{5,400})"
+        group: 1
+        normalize: [collapse_ws]

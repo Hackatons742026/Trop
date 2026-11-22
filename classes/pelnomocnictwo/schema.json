@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "trop://classes/pelnomocnictwo/schema.json",
+  "title": "pelnomocnictwo",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["mocodawca", "pelnomocnicy"],
+  "properties": {
+    "mocodawca": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "podpisujacy"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["imie_nazwisko", "krs", "nazwa", "nip", "typ"],
+            "properties": {
+              "imie_nazwisko": {"type": ["string", "null"]},
+              "krs": {"type": ["string", "null"]},
+              "nazwa": {"type": ["string", "null"]},
+              "nip": {"type": ["string", "null"]},
+              "typ": {
+                "type": ["string", "null"],
+                "enum": ["osoba_prawna", "osoba_fizyczna", null]
+              }
+            }
+          },
+          "podpisujacy": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["imie_nazwisko"],
+              "properties": {
+                "imie_nazwisko": {"type": ["string", "null"]}
+              }
+            }
+          }
+        }
+      }
+    },
+    "pelnomocnicy": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["imie_nazwisko", "pesel"],
+        "properties": {
+          "imie_nazwisko": {"type": ["string", "null"]},
+          "pesel": {"type": ["string", "null"]}
+        }
+      }
+    }
+  }
+}

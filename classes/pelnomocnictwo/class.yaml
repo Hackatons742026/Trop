@@ -1,0 +1,94 @@
+id: pelnomocnictwo
+label: Pełnomocnictwo
+detect:
+  threshold: 6.0
+  margin: 2.0
+  keywords:
+    - { pattern: "(?i)\\bpełnomocnictwo\\b", weight: 5.0 }
+    - { pattern: "(?i)udziela\\s+(?:niniejszym\\s+)?pełnomocnictwa", weight: 4.0 }
+    - { pattern: "(?i)\\bmocodawc", weight: 3.0 }
+    - { pattern: "(?i)\\bpełnomocnik", weight: 2.0 }
+    - { pattern: "(?i)do\\s+reprezentowania", weight: 2.0 }
+    - { pattern: "(?i)przed\\s+Krajową\\s+Izbą\\s+Odwoławczą", weight: 2.0 }
+
+blocks:
+  - id: mocodawca
+    start: "(?i)(mocodawc|udzielając[ya]|ja\\s+niżej|spółka)"
+    end: "(?i)(pełnomocnik|upoważni|udziela)"
+  - id: pelnomocnicy
+    start: "(?i)(pełnomocnik|upoważniam|udziela\\s+pełnomocnictwa)"
+    end: '(?i)(podpis|data|PESEL)'
+  - id: podpisujacy
+    start: "(?i)(w\\s+imieniu|reprezentowan|podpis)"
+    end: null
+
+fields: []
+
+lists:
+  - path: mocodawca
+    block: mocodawca
+    mode: single
+    fields:
+      - key: data.krs
+        extractors:
+          - type: regex
+            pattern: "(?i)\\bKRS\\b\\s*[:\\-]?\\s*(\\d{6,10})"
+            group: 1
+            normalize: [krs_pad10]
+      - key: data.nip
+        extractors:
+          - type: regex
+            pattern: "(?i)\\bNIP\\b\\s*[:\\-]?\\s*([\\d\\-\\s]{10,16})"
+            group: 1
+            normalize: [digits_only]
+      - key: data.nazwa
+        extractors:
+          - type: regex
+            pattern: "(?i)(?:mocodawca|spółka|firma)\\s*[:\\-]?\\s*([^\\n]{3,200})"
+            group: 1
+            normalize: [collapse_ws, strip_titles]
+          - type: regex
+            pattern: "(?i)((?:[A-ZĄĆĘŁŃÓŚŹŻ][^\\n]{2,80}?(?:S\\.A\\.|sp\\.\\s*z\\s*o\\.o\\.|sp\\.\\s*k\\.|sp\\.j\\.)))"
+            group: 1
+            normalize: [collapse_ws]
+      - key: data.imie_nazwisko
+        extractors:
+          - type: regex
+            pattern: "(?i)osoba\\s+fizyczna[^\\n]{0,40}?([A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+\\s+[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż\\-]+)"
+            group: 1
+            normalize: [collapse_ws, nominative]
+      - key: data.typ
+        extractors:
+          - type: regex
+            pattern: "(?i)\\b(KRS|S\\.A\\.|sp\\.\\s*z\\s*o\\.o\\.|spółka)\\b"
+            group: 0
+            const_on_match: "osoba_prawna"
+          - type: const
+            value: "osoba_fizyczna"
+      - key: podpisujacy
+        extractors:
+          - type: regex_all
+            pattern: "(?i)(?:podpisując[ya]|w\\s+imieniu[^:]{0,40}:|reprezentowan[ya]\\s+przez)\\s*([A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+\\s+[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż\\-]+)"
+            group: 1
+            normalize: [collapse_ws, strip_titles, nominative]
+            wrap_key: imie_nazwisko
+
+  - path: pelnomocnicy
+    block: pelnomocnicy
+    mode: multi_from_regex
+    item_pattern: "(?i)((?:adw\\.?|r\\.?\\s*pr\\.?|radca\\s+prawny|aplikant)?\\s*[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+\\s+[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż\\-]+)"
+    fields:
+      - key: imie_nazwisko
+        extractors:
+          - type: regex
+            pattern: "(?i)((?:adw\\.?|r\\.?\\s*pr\\.?|radca\\s+prawny|aplikant)?\\s*[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+\\s+[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż\\-]+)"
+            group: 1
+            normalize: [collapse_ws, strip_titles, nominative]
+      - key: pesel
+        extractors:
+          - type: regex
+            pattern: "(?i)\\bPESEL\\b\\s*[:\\-]?\\s*(\\d{11})"
+            group: 1
+            normalize: [digits_only]
+          - type: const
+            value: null

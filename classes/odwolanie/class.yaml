@@ -1,0 +1,225 @@
+id: odwolanie
+label: Odwołanie do KIO
+detect:
+  threshold: 7.0
+  margin: 2.0
+  keywords:
+    - { pattern: "(?i)\\bodwołanie\\b", weight: 4.0 }
+    - { pattern: "(?i)Krajow[ae]\\s+Izb[ay]\\s+Odwoławcz", weight: 5.0 }
+    - { pattern: "(?i)\\bKIO\\b", weight: 2.0 }
+    - { pattern: "(?i)\\bodwołując", weight: 3.0 }
+    - { pattern: "(?i)\\bzamawiając", weight: 1.5 }
+    - { pattern: "(?i)\\bzarzut", weight: 2.0 }
+    - { pattern: "(?i)zaskarżon", weight: 2.0 }
+    - { pattern: "(?i)wnoszę\\s+odwołanie|wnosi\\s+odwołanie", weight: 3.0 }
+
+blocks:
+  - id: header
+    start: null
+    end: "(?i)odwołując"
+  - id: odwolujacy
+    start: "(?i)odwołując"
+    end: "(?i)zamawiając"
+  - id: zamawiajacy
+    start: "(?i)zamawiając"
+    end: "(?i)(dotycząc[ae]\\s+postępowania|zamówieni[ae]\\s+publiczn|przedmiot|zarzut)"
+  - id: zamowienie
+    start: "(?i)(dotycząc[ae]\\s+postępowania|zamówieni[ae]\\s+publiczn|numer\\s+ogłoszenia|BZP|TED)"
+    end: "(?i)zarzut"
+  - id: zarzuty
+    start: "(?i)zarzut"
+    end: null
+
+fields:
+  - path: OdwolanieKIO.data
+    extractors:
+      - type: regex
+        block: header
+        pattern: "(?i)(?:dnia\\s+)?(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4})"
+        group: 1
+        normalize: [date_pl]
+      - type: regex
+        pattern: "(?i)(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4})\\s*r?\\.?"
+        group: 1
+        normalize: [date_pl]
+
+  - path: OdwolanieKIO.miejscowosc
+    extractors:
+      - type: regex
+        block: header
+        pattern: "(?i)^\\s*([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\- ]{2,40})\\s*,\\s*dnia"
+        group: 1
+        normalize: [collapse_ws, strip_titles]
+      - type: regex
+        block: header
+        pattern: "(?i)([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\- ]{2,40})\\s+\\d{1,2}[./-]\\d{1,2}[./-]\\d{4}"
+        group: 1
+        normalize: [collapse_ws]
+
+  - path: OdwolanieKIO.czynnosc_dzien
+    extractors:
+      - type: regex
+        block: zarzuty
+        pattern: "(?i)(?:z\\s+dnia|dnia|w\\s+dniu)\\s+(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4})"
+        group: 1
+        normalize: [date_pl]
+      - type: regex
+        block: zarzuty
+        pattern: "(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4})"
+        group: 1
+        normalize: [date_pl]
+
+  - path: OdwolanieKIO.czynnosc_powod_id
+    extractors:
+      - type: regex
+        block: zarzuty
+        # Match first zarzut reason keywords → mapped later via dict lookup helper
+        pattern: "(?i)(zaniechanie\\s+unieważnienia\\s+postępowania|decyzj[aei]\\s+o\\s+unieważnieniu\\s+postępowania|zaniechanie\\s+wykluczenia\\s+wykonawcy|zaniechanie\\s+odrzucenia\\s+oferty|odpowiedzi/?wyjaśnienia\\s+do\\s+SWZ|wyjaśnieni[ae]\\s+do\\s+SWZ|modyfikacj[aei]\\s+treści\\s+SWZ|publikacj[aei]\\s+specyfikacji\\s+warunków\\s+zamówienia|specyfikacj[aei]\\s+warunków\\s+zamówienia\\s*\\(?SWZ\\)?|opis\\s+przedmiotu\\s+zamówienia|projektowane\\s+postanowienia\\s+umowy|ogłoszeni[ae]\\s+wyboru\\s+oferty|decyzj[aei]\\s+o\\s+wykluczeniu\\s+wykonawcy|decyzj[aei]\\s+o\\s+odrzuceniu\\s+oferty|odrzuceni[aeu]\\s+oferty|wykluczeni[aeu]\\s+wykonawcy)"
+        group: 1
+        normalize: [collapse_ws]
+        map_to_powod_id: true
+
+  - path: OdwolanieKIO.czynnosc_opis
+    extractors:
+      - type: derived
+        from: OdwolanieKIO.czynnosc_powod_id
+        via: czynnosc_powod_opis
+
+  - path: ZamowieniePubliczne.numer_bzp
+    extractors:
+      - type: regex
+        pattern: "(?i)(?:BZP|Biuletyn(?:ie)?\\s+Zamówień\\s+Publicznych)[^\\d]{0,40}(\\d{4}\\s*/\\s*BZP\\s*\\d{5,12}(?:\\s*/\\s*\\d{1,3})?)"
+        group: 1
+        normalize: [bzp_number]
+      - type: regex
+        pattern: "(\\d{4}/BZP\\s*\\d{5,12}(?:/\\d{1,3})?)"
+        group: 1
+        normalize: [bzp_number]
+
+  - path: ZamowieniePubliczne.numer_ted
+    extractors:
+      - type: regex
+        pattern: "(?i)(?:TED|nr\\s*TED|numer\\s*TED)[^\\d]{0,20}(\\d{5,7}\\s*-\\s*\\d{4})"
+        group: 1
+        normalize: [ted_number]
+      - type: regex
+        pattern: "(?i)(\\d{4}/S\\s*\\d{1,4}\\s*-\\s*\\d{5,7})"
+        group: 1
+        normalize: [ted_number]
+      - type: regex
+        pattern: "\\b(\\d{6}-\\d{4})\\b"
+        group: 1
+        normalize: [ted_number]
+
+  - path: ZamowieniePubliczne.numer_postepowania
+    extractors:
+      - type: label
+        labels: ["Numer postępowania", "Nr postępowania", "Numer referencyjny", "Znak sprawy", "Nr ref."]
+        value_pattern: "([A-Z0-9][A-Z0-9./_\\-]{3,40})"
+        normalize: [collapse_ws]
+      - type: regex
+        pattern: "(?i)(?:numer\\s+(?:postępowania|referencyjny)|nr\\s+postępowania|znak\\s+sprawy)\\s*[:\\-]?\\s*([A-Z0-9][A-Z0-9./_\\-]{3,40})"
+        group: 1
+        normalize: [collapse_ws]
+
+  - path: ZamowieniePubliczne.tytul
+    extractors:
+      - type: label
+        labels: ["Przedmiot zamówienia", "Tytuł zamówienia", "Nazwa zamówienia", "dotyczące"]
+        value_pattern: "(.{10,300}?)"
+        value_flags: "s"
+        stop_at: "(?i)(\\n\\s*zarzut|\\n\\s*I\\.|\\n\\s*1\\.)"
+        normalize: [collapse_ws]
+
+lists:
+  - path: Odwolujacy
+    block: odwolujacy
+    mode: single
+    fields:
+      - key: krs
+        extractors:
+          - type: regex
+            pattern: "(?i)\\bKRS\\b\\s*[:\\-]?\\s*(\\d{6,10})"
+            group: 1
+            normalize: [krs_pad10]
+      - key: nip
+        extractors:
+          - type: regex
+            pattern: "(?i)\\bNIP\\b\\s*[:\\-]?\\s*([\\d\\-\\s]{10,16})"
+            group: 1
+            normalize: [digits_only]
+      - key: regon
+        extractors:
+          - type: regex
+            pattern: "(?i)\\bREGON\\b\\s*[:\\-]?\\s*([\\d\\s]{7,16})"
+            group: 1
+            normalize: [digits_only]
+      - key: nazwa
+        extractors:
+          - type: regex
+            pattern: "(?i)odwołując[ya]\\s*[:\\-]?\\s*(?:lider\\s+konsorcjum\\s*[:\\-]?)?\\s*([^\\n]{5,200})"
+            group: 1
+            normalize: [collapse_ws, strip_titles]
+      - key: przez-pelnomocnika
+        extractors:
+          - type: regex
+            pattern: "(?i)(przez\\s+pełnomocnika|reprezentowan[ya]\\s+przez\\s+pełnomocnika|pełnomocnik)"
+            group: 0
+            const_on_match: 1
+          - type: const
+            value: 0
+      - key: pelnomocnik.imie_nazwisko
+        extractors:
+          - type: regex
+            pattern: "(?i)pełnomocnik(?:a|iem)?\\s*[:\\-]?\\s*((?:adw\\.?|r\\.?\\s*pr\\.?|radca\\s+prawny)?\\s*[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+\\s+[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż\\-]+)"
+            group: 1
+            normalize: [collapse_ws, strip_titles, nominative]
+      - key: pelnomocnik.nazwa
+        extractors:
+          - type: regex
+            pattern: "(?i)((?:Kancelaria|Spółka|S\\.A\\.|sp\\.\\s*z\\s*o\\.o\\.)[^\\n]{3,120})"
+            group: 1
+            normalize: [collapse_ws]
+      - key: pelnomocnik.mail
+        extractors:
+          - type: regex
+            pattern: "(?i)\\b([A-Z0-9._%+\\-]+@[A-Z0-9.\\-]+\\.[A-Z]{2,})\\b"
+            group: 1
+            normalize: [collapse_ws]
+
+  - path: Zamawiajacy
+    block: zamawiajacy
+    mode: single
+    fields:
+      - key: krs
+        extractors:
+          - type: regex
+            pattern: "(?i)\\bKRS\\b\\s*[:\\-]?\\s*(\\d{6,10})"
+            group: 1
+            normalize: [krs_pad10]
+      - key: nip
+        extractors:
+          - type: regex
+            pattern: "(?i)\\bNIP\\b\\s*[:\\-]?\\s*([\\d\\-\\s]{10,16})"
+            group: 1
+            normalize: [digits_only]
+      - key: regon
+        extractors:
+          - type: regex
+            pattern: "(?i)\\bREGON\\b\\s*[:\\-]?\\s*([\\d\\s]{7,16})"
+            group: 1
+            normalize: [digits_only]
+      - key: nazwa
+        extractors:
+          - type: regex
+            pattern: "(?i)zamawiając[ya]\\s*[:\\-]?\\s*([^\\n]{5,200})"
+            group: 1
+            normalize: [collapse_ws, strip_titles]
+      - key: prowadzacy_postepowanie
+        extractors:
+          - type: regex
+            pattern: "(?i)(prowadząc[ya]\\s+postępowanie|lider\\s+postępowania)"
+            group: 0
+            const_on_match: 1
+          - type: const
+            value: null
