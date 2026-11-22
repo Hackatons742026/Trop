@@ -264,13 +264,9 @@ lists:
             normalize: [collapse_ws, strip_titles, person_name, nominative]
       - key: pelnomocnik.nazwa
         extractors:
-          # Full firm on the correspondence line, including partner names before Kancelaria.
+          # Full firm on the correspondence line (may wrap before "ograniczoną…").
           - type: regex
-            pattern: "(?i)adres\\s+do\\s+korespondencji\\s*[:\\-]?\\s*([^\\n]{5,160}?(?:Kancelaria[^\\n]{0,80}?))(?=,\\s*ul\\.|\\nul\\.|\\n\\s*tel\\.)"
-            group: 1
-            normalize: [collapse_ws]
-          - type: regex
-            pattern: "(?i)adres\\s+do\\s+korespondencji\\s*[:\\-]?\\s*([^,\\n]{5,120})"
+            pattern: "(?is)adres\\s+do\\s+korespondencji\\s*[:\\-]?\\s*(.+?)(?=,\\s*ul\\.|\\sul\\.|\\n\\s*tel\\.)"
             group: 1
             normalize: [collapse_ws]
           - type: regex
@@ -278,7 +274,7 @@ lists:
             group: 1
             normalize: [collapse_ws]
           - type: regex
-            pattern: "(?i)(Kancelaria[^\\n]{3,120})"
+            pattern: "(?is)(Kancelaria[^\\n]{3,80}(?:\\n[^\\n]{3,60})?)"
             group: 1
             normalize: [collapse_ws]
       - key: pelnomocnik.mail

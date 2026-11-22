@@ -66,7 +66,7 @@ lists:
             group: 1
             normalize: [collapse_ws, strip_titles, company_name]
           - type: regex
-            pattern: "(?i)do\\s+reprezentacji\\s+([^,(\\n]{3,120})"
+            pattern: "(?is)do\\s+reprezentacji\\s+(.+?)(?=,\\s*ul\\.|\\sul\\.|,?\\s*\\(?KRS|,?\\s*NIP\\b|,?\\s*REGON\\b|,?\\s*wpisan)"
             group: 1
             normalize: [collapse_ws, strip_titles, company_name]
           - type: regex

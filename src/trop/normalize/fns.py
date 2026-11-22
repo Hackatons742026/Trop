@@ -241,7 +241,14 @@ def company_name(value: Any) -> str | None:
     while prev != text:
         prev = text
         text = _COMPANY_BOILERPLATE.sub("", text).strip(" ,;-:")
-    if not text[:1].isupper():
+    # "Monika Kaczmarek - Prezes Zarządu Nordenix … Sp. z o.o."
+    text = re.sub(
+        r"(?i)^.*?[-–]\s*(?:Prezes|Członek|Wiceprezes|Prokurent)\s+"
+        r"(?:Zarządu\s+)?",
+        "",
+        text,
+    ).strip(" ,;-:")
+    if not text or not text[:1].isupper():
         return None
     if re.match(
         r"(?i)^(konsorcjum\b|mocodawc|pe[łl]?nomocn|zamawiaj|odwo[łl]uj|"
@@ -326,6 +333,12 @@ def person_name(value: Any) -> str | None:
     text = re.sub(r"([a-ząćęłńóśźż])([A-ZĄĆĘŁŃÓŚŹŻ])", r"\1 \2", text)
     parts = [p for p in text.split() if p and not p.startswith("(")]
     if len(parts) < 2:
+        return None
+    # Reject firm/role fragments mistaken for people.
+    if re.search(
+        r"(?i)\b(sp\.|spółk|systemy|budownictwo|serwis|prezes|zarząd|kancelaria)\b",
+        text,
+    ):
         return None
     fixed: list[str] = []
     for part in parts[:3]:  # at most first + last (+ hyphenated last)

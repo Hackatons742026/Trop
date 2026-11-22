@@ -175,7 +175,7 @@ fields:
     extractors:
       - type: regex
         # OCR: Tytuł / Tytul / Tytut — multi-line until Typ/Kwota/IDENTYFIKATOR.
-        pattern: "(?is)Tytu[łltu]\\s*:\\s*((?:(?!\\n\\s*(?:Typ\\s+transakcji|Kwota\\b|Status\\b|IDENTYFIKATOR|WALUTA\\b|-{3,}))[\\s\\S])+)"
+        pattern: "(?is)Tytu[łltu]\\s*:\\s*((?:(?!\\n\\s*(?:Typ\\s+transakcji|Kwota\\b|Status\\b|IDENTYFIKATOR|WALUTA\\b|Dok\\b|Strona\\b|Bank\\s+\\w+|-{3,}))[\\s\\S])+)"
         group: 1
         normalize: [collapse_ws]
       - type: label
@@ -197,7 +197,7 @@ fields:
           - "OPIS"
         # Prefer narrative opis lines; reject bare next-column headers like "Kwota".
         value_pattern: "((?![Kk]wota|[Dd]ata|[Nn]umer)[^\\n]{8,300}(?:\\n[^\\n]{0,200}){0,2})"
-        stop_at: "(?i)\\n\\s*(?:numer\\s+referencyjny|nr\\s*ref\\.?|status|kanał|tryb|waluta|kwota|data\\s|rachunek|typ\\s+operacji|dane\\s+nadawcy|\\*{3})"
+        stop_at: "(?i)\\n\\s*(?:numer\\s+referencyjny|nr\\s*ref\\.?|status|kanał|tryb|waluta|kwota|data\\s|rachunek|typ\\s+operacji|dane\\s+nadawcy|Dok\\b|Strona\\b|Bank\\s+\\w+|\\*{3})"
         normalize: [collapse_ws]
       - type: label
         labels: ["Tytuł"]
