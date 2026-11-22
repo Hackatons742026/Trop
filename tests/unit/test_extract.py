@@ -137,6 +137,41 @@ def test_podpisujacy_after_dotted_signature_lines() -> None:
     assert names == ["Halina Mazurkiewicz", "Sławomir Szulc"]
 
 
+def _mocodawca_typ(text: str) -> str | None:
+    mocodawca = extract_payload(text, _spec("pelnomocnictwo"))["mocodawca"]
+    return mocodawca[0]["data"]["typ"] if mocodawca else None
+
+
+def test_typ_sole_trader_with_nip_is_osoba_fizyczna() -> None:
+    text = (
+        "PEŁNOMOCNICTWO\n"
+        "Ja, niżej podpisany Jarosław Dudek, prowadzący działalność gospodarczą pod firmą\n"
+        "DUDEK-TECH Jarosław Dudek, NIP 9994150873, wpisany do Centralnej Ewidencji i\n"
+        "Informacji o Działalności Gospodarczej, niniejszym udzielam pełnomocnictwa:\n"
+        "adw. Jan Kowalski\n"
+    )
+    assert _mocodawca_typ(text) == "osoba_fizyczna"
+
+
+def test_typ_legal_form_suffix_is_osoba_prawna() -> None:
+    """The old pattern's trailing \\b after 'S.A.' could never match."""
+    text = (
+        "PEŁNOMOCNICTWO\n"
+        "Mocodawca: Testowa S.A. z siedzibą w Gdańsku\n"
+        "udziela pełnomocnictwa adw. Jan Kowalski\n"
+    )
+    assert _mocodawca_typ(text) == "osoba_prawna"
+
+
+def test_typ_is_not_invented_without_cues() -> None:
+    text = (
+        "PEŁNOMOCNICTWO\n"
+        "Mocodawca: Firma Testowa\n"
+        "udziela pełnomocnictwa adw. Jan Kowalski\n"
+    )
+    assert _mocodawca_typ(text) is None
+
+
 def test_pelnomocnik_name_requires_capitalised_tokens() -> None:
     text = (
         "Odwołujący: Firma Testowa S.A.\n"

@@ -13,8 +13,12 @@ detect:
 
 blocks:
   - id: mocodawca
-    start: "(?i)(mocodawc|udzielając[ya]|ja\\s+niżej|spółka)"
-    end: "(?i)(pełnomocnik|upoważni|udziela)"
+    # "upoważniam" (the grant), not "upoważni…" which also hits the adjective
+    # in "osoba upoważniona do reprezentacji <firma> (KRS …)".
+    # The firm often follows the uppercase title (possibly letter-spaced)
+    # before "(dalej: „Mocodawca”)", so the title also opens the block.
+    start: "^[ \\t]*P[ \\t]*E[ \\t]*Ł[ \\t]*N[ \\t]*O[ \\t]*M[ \\t]*O[ \\t]*C[ \\t]*N[ \\t]*I[ \\t]*C[ \\t]*T[ \\t]*W[ \\t]*O|(?i:mocodawc|udzielając[ya]|ja,?\\s+niżej|spółka)"
+    end: "(?i)(pełnomocnik|upoważniam|udziela)"
   # Attorneys are listed between the grant ("Pełnomocnik/Pełnomocnicy",
   # "upoważniam", "udzielam pełnomocnictwa", "ustanawiam") and the scope /
   # next section. Never end at "PESEL": it belongs to the attorney entry.
@@ -62,14 +66,18 @@ lists:
             pattern: "(?i:osoba\\s+fizyczna)[^\\n]{0,40}?([A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
             group: 1
             normalize: [collapse_ws, nominative]
+      # Natural-person cues first (a sole trader also has a NIP / firm name),
+      # then legal-person cues. No fallback: unknown stays null, never invented.
       - key: data.typ
         extractors:
           - type: regex
-            pattern: "(?i)\\b(KRS|S\\.A\\.|sp\\.\\s*z\\s*o\\.o\\.|spółka)\\b"
+            pattern: "(?i)(osoba\\s+fizyczna|prowadząc\\w*\\s+działalność\\s+gospodarczą|Centraln\\w*\\s+Ewidencj\\w*\\s+i\\s+Informacj\\w*|\\bCEIDG\\b)"
+            group: 0
+            const_on_match: "osoba_fizyczna"
+          - type: regex
+            pattern: "(?i)(\\bKRS\\b|S\\.A\\.|sp\\.\\s*z\\s*o\\.\\s*o\\.|sp\\.\\s*[kj]\\.|\\bspółk)"
             group: 0
             const_on_match: "osoba_prawna"
-          - type: const
-            value: "osoba_fizyczna"
       # Signatures sit after the mocodawca section, so this field uses its own
       # block. Name follows a dotted signature line (optionally then a
       # "Za <firma>" line) or a "w imieniu …:" cue;

@@ -101,16 +101,6 @@ def _extract_list(text: str, blocks: dict[str, str], lst: ListSpec) -> list[dict
         val = first_hit(field_scope, field.extractors)
         _set_nested_item(item, field.key, val)
 
-    # typ / osoba_prawna cleanup for mocodawca
-    if "data" in item and isinstance(item["data"], dict):
-        data = item["data"]
-        if data.get("krs") or data.get("nip"):
-            data["typ"] = "osoba_prawna"
-            if data.get("imie_nazwisko") is None:
-                data.setdefault("imie_nazwisko", None)
-        elif data.get("imie_nazwisko"):
-            data["typ"] = "osoba_fizyczna"
-
     if any(v is not None and v != [] for v in _leaf_values(item)):
         return [item]
     return []
