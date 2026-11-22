@@ -1,17 +1,26 @@
 id: przelew
 label: Potwierdzenie przelewu
 detect:
-  threshold: 6.0
+  threshold: 5.0
   margin: 2.0
   keywords:
-    - { pattern: "(?i)potwierdzeni[ea]\\s+przelewu", weight: 5.0 }
+    # Title variants (bank PDFs rarely share wording).
+    - { pattern: "(?i)potwierdzeni[ea]\\s+(?:realizacji\\s+)?(?:polecenia\\s+)?przelewu", weight: 5.0 }
+    - { pattern: "(?i)potwierdzeni[ea]\\s+(?:wykonania\\s+)?przelewu", weight: 5.0 }
+    - { pattern: "(?i)potwierdzeni[ea]\\s+(?:transakcji|operacji\\s+bankowej)", weight: 4.5 }
+    - { pattern: "(?i)dow[oó]d\\s+wykonania\\s+przelewu", weight: 5.0 }
+    - { pattern: "(?i)przelew\\s+krajowy", weight: 4.0 }
     - { pattern: "(?i)przelew\\s+bankowy", weight: 4.0 }
+    - { pattern: "(?i)poleceni[ea]\\s+przelewu", weight: 3.5 }
     - { pattern: "(?i)\\bIBAN\\b|numer\\s+rachunku", weight: 2.0 }
-    - { pattern: "(?i)tytuł\\s+(?:płatności|przelewu|operacji)", weight: 2.5 }
-    - { pattern: "(?i)kwota\\s+(?:operacji|przelewu|transakcji)?", weight: 2.0 }
-    - { pattern: "(?i)data\\s+operacji", weight: 2.5 }
-    - { pattern: "(?i)z\\s+rachunku|na\\s+rachunek", weight: 2.0 }
-    - { pattern: "(?i)opłat[ay]\\s+(?:odwoławcz|skarbow)", weight: 1.5 }
+    - { pattern: "(?i)(?:rachunek\\s+(?:nadawcy|odbiorcy|zleceniodawcy|beneficjenta|obciążany|uznawany|kontrahenta)|z\\s+rachunku|na\\s+rachunek)", weight: 2.5 }
+    - { pattern: "(?i)tytuł(?:em)?\\s*(?:płatności|przelewu|operacji)?|\\btytułem\\b", weight: 2.0 }
+    - { pattern: "(?i)kwota\\s*(?:\\n\\s*)?(?:operacji|przelewu|transakcji)|\\bwartość\\b", weight: 2.0 }
+    - { pattern: "(?i)data\\s*(?:\\n\\s*)?(?:operacji|transakcji|wykonania|realizacji)", weight: 2.0 }
+    - { pattern: "(?i)numer\\s+referencyjny|nr\\s*ref\\.?|numer\\s*(?:\\n\\s*)?transakcji", weight: 2.0 }
+    - { pattern: "(?i)transakcj[ae]\\s+złożona|typ\\s+przelewu|przelew\\s+złotowy", weight: 3.0 }
+    - { pattern: "(?i)opłat[ay]\\s+(?:odwoławcz|skarbow)|wpis\\s+od\\s+odw", weight: 1.5 }
+    - { pattern: "(?i)\\bPL\\d{2}\\b|\\b\\d{2}(?:\\s\\d{4}){6}\\b", weight: 1.5 }
 
 blocks: []
 
@@ -19,67 +28,167 @@ fields:
   - path: przelew_bankowy.data_operacji
     extractors:
       - type: label
-        labels: ["Data operacji", "Data księgowania", "Data przelewu", "Data transakcji"]
-        value_pattern: "(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4}|\\d{4}-\\d{2}-\\d{2})"
+        labels:
+          - "Data operacji"
+          - "Data transakcji"
+          - "Data wykonania"
+          - "Data realizacji"
+          - "Data księgowania"
+          - "Zlecona data wykonania"
+          - "DATA TRANSAKCJI"
+          - "DATA REALIZACJI"
+          - "DATA OPERACJI"
+        value_pattern: "(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4}|\\d{4}-\\d{2}-\\d{2}|\\d{1,2}\\s+[A-Za-ząćęłńóśźżĄĆĘŁŃÓŚŹŻ]+\\s+\\d{4})"
         normalize: [date_pl]
       - type: regex
-        pattern: "(?i)data\\s+(?:operacji|księgowania|przelewu|transakcji)\\s*[:\\-]?\\s*(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4}|\\d{4}-\\d{2}-\\d{2})"
+        pattern: "(?i)(?:data\\s+(?:operacji|transakcji|wykonania|realizacji|księgowania)|zlecona\\s+data\\s+wykonania)\\s*[:\\-]?\\s*(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4}|\\d{4}-\\d{2}-\\d{2}|\\d{1,2}\\s+[A-Za-ząćęłńóśźżĄĆĘŁŃÓŚŹŻ]+\\s+\\d{4})"
+        group: 1
+        normalize: [date_pl]
+      - type: regex
+        # "Bank potwierdza, że w dniu 17.02.2026 z rachunku…"
+        pattern: "(?i)w\\s+dniu\\s+(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4}|\\d{4}-\\d{2}-\\d{2}|\\d{1,2}\\s+[A-Za-ząćęłńóśźżĄĆĘŁŃÓŚŹŻ]+\\s+\\d{4})"
+        group: 1
+        normalize: [date_pl]
+      - type: regex
+        # OCR layouts that split the label: "Data\\n2026-03-26\\nwykonania"
+        pattern: "(?i)data\\s*\\n\\s*(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4}|\\d{4}-\\d{2}-\\d{2})\\s*\\n\\s*(?:operacji|transakcji|wykonania|realizacji)"
         group: 1
         normalize: [date_pl]
 
   - path: przelew_bankowy.kwota
     extractors:
       - type: label
-        labels: ["Kwota", "Kwota operacji", "Kwota przelewu", "Amount"]
-        value_pattern: "([\\d\\s]+[,.]\\d{2}|\\d+[.,]\\d{2}|\\d+)"
+        labels:
+          - "Kwota operacji"
+          - "Kwota przelewu"
+          - "KWOTA PRZELEWU"
+          - "KWOTA OPERACJI"
+          - "Kwota"
+          - "Wartość"
+          - "WARTOŚĆ"
+          - "Amount"
+        value_pattern: "((?:PLN|zł)?\\s*[\\d\\s]+[,.]\\d{2})"
         normalize: [amount_pl]
       - type: regex
-        pattern: "(?i)kwota\\s*(?:operacji|przelewu|transakcji)?\\s*[:\\-]?\\s*([\\d\\s]+[,.]\\d{2})"
+        pattern: "(?i)(?:kwota\\s*(?:operacji|przelewu|transakcji)?|wartość)\\s*[:\\-–.…·]*\\s*((?:PLN|zł)?\\s*[\\d\\s]+[,.]\\d{2})"
         group: 1
         normalize: [amount_pl]
-
-  - path: przelew_bankowy.na_rachunek
-    extractors:
-      - type: label
-        labels: ["Na rachunek", "Rachunek odbiorcy", "Konto odbiorcy", "Odbiorca"]
-        value_pattern: "((?:PL\\s*)?(?:\\d[\\d\\s]{10,40}\\d))"
-        normalize: [iban_as_printed]
       - type: regex
-        pattern: "(?i)na\\s+rachunek\\s*[:\\-]?\\s*((?:PL\\s*)?(?:\\d[\\d\\s]{10,40}\\d))"
+        pattern: "(?i)w\\s+kwocie\\s+([\\d\\s]+[,.]\\d{2})"
         group: 1
-        normalize: [iban_as_printed]
+        normalize: [amount_pl]
+      - type: regex
+        # OCR: "Kwota\\n10 000,00 PLN\\nprzelewu"
+        pattern: "(?i)kwota\\s*\\n\\s*([\\d\\s]+[,.]\\d{2})\\s*(?:PLN|zł)?\\s*\\n\\s*przelewu"
+        group: 1
+        normalize: [amount_pl]
 
   - path: przelew_bankowy.z_rachunku
     extractors:
       - type: label
-        labels: ["Z rachunku", "Rachunek nadawcy", "Konto nadawcy", "Nadawca"]
+        labels:
+          - "Rachunek zleceniodawcy"
+          - "Rachunek nadawcy"
+          - "Rachunek obciążany"
+          - "RACHUNEK NADAWCY"
+          - "RACHUNEK ZLECENIODAWCY"
+          - "Z rachunku"
+          - "Numer rachunku"
+          - "Rachunek zleceniodawcy"
         value_pattern: "((?:PL\\s*)?(?:\\d[\\d\\s]{10,40}\\d))"
-        normalize: [iban_as_printed]
+        normalize: [account_number]
       - type: regex
-        pattern: "(?i)z\\s+rachunku\\s*[:\\-]?\\s*((?:PL\\s*)?(?:\\d[\\d\\s]{10,40}\\d))"
+        pattern: "(?i)(?:z\\s+rachunku|rachunek\\s+(?:nadawcy|zleceniodawcy|obciążany)|rachunek\\s+zleceniodawcy)\\s*[:\\-–.…·]*\\s*((?:PL\\s*)?(?:\\d[\\d\\s]{10,40}\\d))"
         group: 1
-        normalize: [iban_as_printed]
+        normalize: [account_number]
+      - type: regex
+        # First IBAN / 26-digit account in the document (payer is listed first).
+        pattern: "(?i)(?:^|[\\n\\s])(?:PL\\s*)?(\\d(?:[\\d\\s]{24,40})\\d)(?!\\d)"
+        group: 1
+        normalize: [account_number]
+
+  - path: przelew_bankowy.na_rachunek
+    extractors:
+      - type: label
+        labels:
+          - "Rachunek beneficjenta"
+          - "Rachunek odbiorcy"
+          - "Rachunek uznawany"
+          - "Rachunek kontrahenta"
+          - "RACHUNEK ODBIORCY"
+          - "RACHUNEK BENEFICJENTA"
+          - "Na rachunek"
+          - "Konto odbiorcy"
+        value_pattern: "((?:PL\\s*)?(?:\\d[\\d\\s]{10,40}\\d))"
+        normalize: [account_number]
+      - type: regex
+        pattern: "(?i)(?:na\\s+rachunek|rachunek\\s+(?:odbiorcy|beneficjenta|uznawany|kontrahenta))\\s*[:\\-–.…·]*\\s*((?:PL\\s*)?(?:\\d[\\d\\s]{10,40}\\d))"
+        group: 1
+        normalize: [account_number]
+      - type: regex
+        # Second IBAN / 26-digit account (payee follows payer).
+        pattern: "(?i)(?:PL\\s*)?(?:\\d(?:[\\d\\s]{24,40})\\d)[\\s\\S]{0,400}?(?:PL\\s*)?(\\d(?:[\\d\\s]{24,40})\\d)"
+        group: 1
+        normalize: [account_number]
 
   - path: przelew_bankowy.numer_transakcji
     extractors:
       - type: label
-        labels: ["Numer transakcji", "Nr transakcji", "ID transakcji", "Referencja"]
-        value_pattern: "([A-Z0-9][A-Z0-9\\-]{5,40})"
-        value_flags: "i"  # bank references may be lowercase hex
+        labels:
+          - "Numer referencyjny"
+          - "NUMER REFERENCYJNY"
+          - "Numer transakcji"
+          - "Nr transakcji"
+          - "Nr ref."
+          - "Nr ref"
+          - "NR REF."
+          - "NR REF"
+          - "Referencja"
+          - "ID transakcji"
+          - "Identyfikator operacji"
+          - "Identyfikator transakcji"
+        # At least one digit so prose ("operacji") never counts as a ref.
+        value_pattern: "([A-Z0-9\\-]*\\d[A-Z0-9\\-]{4,40})"
+        value_flags: "i"
         normalize: [collapse_ws]
       - type: regex
-        pattern: "(?i)(?:numer|nr)\\s+transakcji\\s*[:\\-]?\\s*([A-Z0-9][A-Z0-9\\-]{5,40})"
+        pattern: "(?i)(?:numer\\s+referencyjny|numer\\s+transakcji|nr\\s*ref\\.?|nr\\s+transakcji)\\s*[:\\-–.…·]*\\s*([A-Z0-9\\-]*\\d[A-Z0-9\\-]{4,40})"
+        group: 1
+        normalize: [collapse_ws]
+      - type: regex
+        # Synthetic HackNation refs (CEN…) often appear after the title.
+        pattern: "\\b(CEN\\d{10,16})\\b"
         group: 1
         normalize: [collapse_ws]
 
   - path: przelew_bankowy.tytul
     extractors:
       - type: label
-        labels: ["Tytuł", "Tytuł przelewu", "Tytuł płatności", "Tytuł operacji"]
-        value_pattern: "(.{5,400})"
-        stop_at: "(?i)(\\n\\s*[A-ZĄĆĘŁŃÓŚŹŻ][^:]{0,30}:|\\n\\s*$)"
+        labels:
+          - "Tytuł przelewu"
+          - "Tytuł płatności"
+          - "Tytuł operacji"
+          - "TYTUŁ PRZELEWU"
+          - "Tytułem"
+          - "Tytulem"
+          - "Opis"
+          - "OPIS"
+          - "Szczegóły płatności"
+        # Up to 3 lines; stop before the next bank field, never mid-word.
+        value_pattern: "([^\\n]{5,300}(?:\\n[^\\n]{0,200}){0,2})"
+        stop_at: "(?i)\\n\\s*(?:numer\\s+referencyjny|nr\\s*ref\\.?|status|kanał|tryb|waluta|kwota|data\\s|rachunek|typ\\s+operacji|\\*{3})"
+        normalize: [collapse_ws]
+      - type: label
+        labels: ["Tytuł"]
+        value_pattern: "([^\\n]{5,300}(?:\\n[^\\n]{0,200}){0,2})"
+        stop_at: "(?i)\\n\\s*(?:numer\\s+referencyjny|nr\\s*ref\\.?|status|kanał|tryb|waluta|kwota|data\\s|rachunek)"
         normalize: [collapse_ws]
       - type: regex
-        pattern: "(?i)tytuł\\s*(?:przelewu|płatności|operacji)?\\s*[:\\-]?\\s*([^\\n]{5,400})"
+        pattern: "(?i)(?:tytuł(?:em)?\\s*(?:przelewu|płatności|operacji)?|opis|szczegóły\\s+płatności)\\s*[:\\-]?\\s*([^\\n]{5,300}(?:\\n(?!\\s*(?:numer|nr\\s*ref|status|kanał|kwota|data|rachunek))[^\\n]{0,200}){0,2})"
+        group: 1
+        normalize: [collapse_ws]
+      - type: regex
+        # Fallback: the standard HackNation fee phrase.
+        pattern: "(?i)((?:opłata\\s+skarbowa|wpis\\s+od\\s+odw)[^\\n]{10,300}(?:\\n[^\\n]{0,200}){0,2})"
         group: 1
         normalize: [collapse_ws]
