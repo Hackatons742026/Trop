@@ -1,0 +1,21 @@
+# Optional LLM assist profiles. Default is `none` (maximum model-size points).
+# Keys never live in git — use /opt/solution/.env (TROP_LLM__API_KEY) or the
+# HackNation form. A missing key or failed call leaves the rules-only JSON intact.
+
+default_profile: none
+
+profiles:
+  none:
+    enabled: false
+    description: Rules-only path; no network calls.
+
+  openai_compatible:
+    enabled: false
+    description: OpenAI-compatible chat completions (EU/EEA company-hosted preferred).
+    base_url: null
+    model: null
+    # Env var holding the API key (never commit the value).
+    api_key_env: TROP_LLM__API_KEY
+    timeout_s: 30
+    # Only interpretive / long-string fields when rules plateau (stub — unused when disabled).
+    max_fields: 8
