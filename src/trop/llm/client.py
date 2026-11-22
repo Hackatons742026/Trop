@@ -148,20 +148,19 @@ def maybe_assist(
         )
         return payload
 
-    # Stub assist: call the API for a no-op health check / future field fill.
-    # We intentionally do not merge invented JSON into the scored payload yet;
-    # any parse/merge failure must leave ``payload`` unchanged.
-    _ = _chat_completion(
-        active,
-        system=(
-            "You assist Polish public-procurement document extraction. "
-            "Reply with JSON only for missing fields; never invent values."
-        ),
-        user=(
-            f"class_id={class_id}\n"
-            f"current_json={payload!r}\n"
-            f"excerpt={(document_text or '')[:4000]}"
-        ),
-    )
-    # Keep rules-only result until a vetted merge path exists.
+    # No vetted merge path exists yet, so a reply could never reach the scored
+    # JSON. Don't send document text to an external API (cost, latency, data
+    # exposure) for a result that would be discarded. When a merge is
+    # implemented, call _chat_completion() here and merge its JSON.
+    global _warned_no_merge
+    if not _warned_no_merge:
+        _warned_no_merge = True
+        logger.warning(
+            "LLM profile %r is enabled, but LLM assist has no merge step yet — "
+            "no request is sent and the rules-only JSON is kept",
+            active.name,
+        )
     return payload
+
+
+_warned_no_merge = False
