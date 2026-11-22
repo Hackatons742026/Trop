@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import string
 from pathlib import Path
 
@@ -14,6 +15,14 @@ from trop.settings import OcrSettings
 logger = logging.getLogger(__name__)
 
 _PRINTABLE = set(string.printable)
+
+# Full-page OCR sometimes obliterates stamped "nr referencyjny" / BZP lines;
+# a higher-DPI horizontal band pass often recovers them.
+_REF_LABEL = re.compile(r"(?i)nr\s*referencyj")
+_REF_VALUE = re.compile(r"(?i)nr\s*referencyj\w*\s*:?\s*([^\n]{0,100})")
+_HAS_PROC_OR_BZP = re.compile(
+    r"(?i)(?:\b[A-Z]{1,6}[./]\d{1,4}[./]\d{2,4}\b|\d{4}\s*/\s*BZP|\bOPZ\b)"
+)
 
 
 def printable_stats(text: str) -> tuple[int, float]:
@@ -191,4 +200,57 @@ def _ingest_page(
     page.printable_chars = ocr_meaningful
     page.printable_ratio = ocr_ratio
     page.source = TextSource.OCR
+    _maybe_refine_referencyjny_band(pdf, index, dpi=dpi, page=page)
     return page, True
+
+
+def _referencyjny_looks_broken(text: str) -> bool:
+    """True when a referencyjny cue exists but no procedure/BZP/OPZ token nearby."""
+    if not text or not _REF_LABEL.search(text):
+        return False
+    if _HAS_PROC_OR_BZP.search(text):
+        return False
+    m = _REF_VALUE.search(text)
+    if not m:
+        return True
+    # Digits alone in the tail are usually OCR noise ("Z     e     ien").
+    return not re.search(r"[A-Za-z]{1,6}\s*/\s*\d", m.group(1))
+
+
+def _maybe_refine_referencyjny_band(
+    pdf: PdfBackend,
+    index: int,
+    *,
+    dpi: int,
+    page: Page,
+) -> None:
+    """Re-OCR mid-page bands at higher DPI when procedure numbers look destroyed."""
+    if not _referencyjny_looks_broken(page.text or ""):
+        return
+    band_dpi = min(max(dpi + 150, 300), 350)
+    try:
+        image = pdf.render_page(index, dpi=band_dpi).image
+    except Exception:  # noqa: BLE001
+        logger.debug("Page %s: band re-OCR render failed", index, exc_info=True)
+        return
+    if image is None or getattr(image, "size", 0) == 0:
+        return
+    height = int(image.shape[0])
+    # Narrow bands: wider crops confuse the detector on stamped scans.
+    recovered: list[str] = []
+    for y0, y1 in ((0.55, 0.78), (0.58, 0.82), (0.50, 0.70)):
+        y_a, y_b = int(height * y0), int(height * y1)
+        if y_b <= y_a:
+            continue
+        band_text, _ = ocr_image(image[y_a:y_b, :])
+        if band_text and _HAS_PROC_OR_BZP.search(band_text):
+            recovered.append(band_text.strip())
+    if not recovered:
+        return
+    # Prefer the richest recovery (most procedure/BZP/OPZ hits).
+    extra = max(recovered, key=lambda t: len(_HAS_PROC_OR_BZP.findall(t)))
+    logger.debug("Page %s: prepending higher-DPI referencyjny band OCR", index)
+    # Prepend so "wobec … OPZ" / procedure numbers win over the damaged full-page OCR.
+    page.text = f"{extra}\n{page.text.lstrip()}"
+    page.lines = lines_from_plain_text(page.text)
+    page.printable_chars, page.printable_ratio = printable_stats(page.text)

@@ -77,3 +77,45 @@ def test_empty_text_layer_takes_any_ocr(monkeypatch) -> None:
 def test_discarded_ocr_attempts_count_against_budget(monkeypatch) -> None:
     _, calls = _ingest(monkeypatch, [SIGNATURE_PAGE] * 3, "", max_pages=1)
     assert len(calls) == 1
+
+
+def test_referencyjny_looks_broken() -> None:
+    broken = (
+        "Dotyczy:\npn. Title\", nr referencyjny:\nZ     e     ien\n"
+        "Publicznych, ogłoszenie w TED nr 2026/S 224-429185"
+    )
+    assert text_layer._referencyjny_looks_broken(broken) is True
+    ok = "nr referencyjny: ZP/12/2026, ogłoszenie nr 2026/BZP 00879135/03"
+    assert text_layer._referencyjny_looks_broken(ok) is False
+
+
+def test_band_refine_prepends_recovered_procedure_numbers(monkeypatch) -> None:
+    """When full-page OCR eats ZP/BZP, a higher-DPI band recovery is prepended."""
+    damaged = (
+        "Dotyczy:\npn. Robota\", nr referencyjny:\nZ     e     ien\n"
+        "Publicznych\nwnoszę odwołanie wobec:\na i as\n"
+    )
+    recovered = (
+        "nr referencyjny: ZP/12/2026, ogłoszenie nr 2026/BZP 00879135/03\n"
+        "wnoszę odwołanie wobec:\nPrzedmiotu Zamówienia (OPZ),\n"
+    )
+    calls: list[str] = []
+
+    def fake_ocr(image):
+        # First call = full page; later = bands.
+        if not calls:
+            calls.append("page")
+            return damaged, []
+        calls.append("band")
+        return recovered, []
+
+    monkeypatch.setattr(text_layer, "ocr_image", fake_ocr)
+    doc = text_layer.ingest_document(
+        Path("x.pdf"),
+        backend=FakeBackend([""]),
+        ocr=OcrSettings(),
+    )
+    text = doc.pages[0].text
+    assert "ZP/12/2026" in text
+    assert text.index("ZP/12/2026") < text.index("Z     e")
+    assert any(c == "band" for c in calls)
