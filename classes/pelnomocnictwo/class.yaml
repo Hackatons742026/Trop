@@ -97,12 +97,22 @@ lists:
           - type: regex
             pattern: "(?i:osoba\\s+fizyczna)[^\\n]{0,40}?([A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
             group: 1
-            normalize: [collapse_ws, nominative]
+            normalize: [collapse_ws, person_name, nominative]
           - type: regex
             # "Ja, niżej podpisany Jarosław Dudek, prowadzący działalność…"
             pattern: "(?i:ja,?\\s+niżej\\s+podpisany)\\s+([A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
             group: 1
-            normalize: [collapse_ws, nominative]
+            normalize: [collapse_ws, person_name, nominative]
+          - type: regex
+            # E-sign / OCR: "Dokument podpisany przez Paweł Brzozowski"
+            pattern: "(?i:dokument\\s+podpisany\\s+przez)\\s+([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\-]+\\s+[A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\-]+)"
+            group: 1
+            normalize: [collapse_ws, person_name, nominative]
+          - type: regex
+            # Sole-trader firm line starts with the person's name: "Paweł … Asterion Usługi…"
+            pattern: "(?i)pod\\s+firmą\\s+([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\-]+\\s+[A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\-]+)"
+            group: 1
+            normalize: [collapse_ws, person_name, nominative]
       # Natural-person cues first (a sole trader also has a NIP / firm name),
       # then legal-person cues. No fallback: unknown stays null, never invented.
       - key: data.typ

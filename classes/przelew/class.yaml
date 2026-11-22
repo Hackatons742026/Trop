@@ -175,6 +175,16 @@ fields:
         pattern: "\\b(CEN\\d{10,16})\\b"
         group: 1
         normalize: [collapse_ws]
+      - type: regex
+        # OCR column: "Numer\\n305494\\ntransakcji"
+        pattern: "(?i)numer\\s*\\n\\s*(\\d{5,10})\\s*\\n\\s*transakcji"
+        group: 1
+        normalize: [collapse_ws]
+      - type: regex
+        # Short numeric refs on OCR bank slips (e.g. 305494 / 801140).
+        pattern: "(?i)(?:nr\\s*ref\\.?|numer\\s+(?:referencyjny|transakcji)|ref(?:erencja)?)\\s*[:\\-–.…·]*\\s*(\\d{5,10})\\b"
+        group: 1
+        normalize: [collapse_ws]
 
   - path: przelew_bankowy.tytul
     extractors:
