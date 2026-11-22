@@ -92,8 +92,8 @@ fields:
     extractors:
       # Hold-out style: "polegających na: 1) wyborze … 2) zaniechaniu …"
       - type: regex
-        # First numbered challenged act only (single line — do not swallow "2) …").
-        pattern: "(?i)(?:polegających\\s+na|zaskarżon\\w*\\s+czynnoś)[\\s\\S]{0,80}?\\d[\\.\\)]\\s*([^\\n]{8,220})"
+        # Challenged-act list only — not the later "zaskarżonym … 1) art. …" zarzuty list.
+        pattern: "(?i)polegających\\s+na[\\s\\S]{0,80}?\\d[\\.\\)]\\s*([^\\n]{8,220})"
         group: 1
         normalize: [collapse_ws]
         map_to_powod_id: true

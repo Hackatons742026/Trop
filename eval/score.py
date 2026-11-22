@@ -162,10 +162,20 @@ def _use_fuzzy(path: str) -> bool:
     return False
 
 
+def _account_digits(value: str) -> str:
+    """IBAN/account → 26 digits (optional ``PL`` prefix ignored)."""
+    text = re.sub(r"(?i)^\s*PL", "", value)
+    return re.sub(r"\D+", "", text)
+
+
 def values_equal(pred: Any, gold: Any, path: str) -> bool:
     if isinstance(pred, (int, float)) and isinstance(gold, (int, float)):
         return float(pred) == float(gold)
     if isinstance(pred, str) and isinstance(gold, str):
+        if path.endswith(("z_rachunku", "na_rachunek")):
+            pd, gd = _account_digits(pred), _account_digits(gold)
+            if len(pd) == 26 and pd == gd:
+                return True
         if _use_fuzzy(path):
             # Normalized edit-distance similarity. Not token_set_ratio: it
             # scores 100 whenever one side's tokens are a subset of the

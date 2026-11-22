@@ -45,6 +45,11 @@ fields:
         group: 1
         normalize: [date_pl]
       - type: regex
+        # OCR spaced digits: "Zlecona data wykonania\\n20 04 2026"
+        pattern: "(?i)(?:zlecona\\s+data\\s+wykonania|data\\s+(?:operacji|transakcji|wykonania|realizacji))\\s*[:\\-]?\\s*(\\d{1,2}\\s+\\d{1,2}\\s+\\d{4})"
+        group: 1
+        normalize: [date_pl]
+      - type: regex
         # "Bank potwierdza, że w dniu 17.02.2026 z rachunku…"
         pattern: "(?i)w\\s+dniu\\s+(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4}|\\d{4}-\\d{2}-\\d{2}|\\d{1,2}\\s+[A-Za-ząćęłńóśźżĄĆĘŁŃÓŚŹŻ]+\\s+\\d{4})"
         group: 1
@@ -209,7 +214,7 @@ fields:
         group: 1
         normalize: [collapse_ws]
       - type: regex
-        # Fallback: the standard HackNation fee phrase.
-        pattern: "(?i)((?:opłata\\s+skarbowa|wpis\\s+od\\s+odw)[^\\n]{10,300}(?:\\n[^\\n]{0,200}){0,2})"
+        # Fallback: the standard HackNation fee phrase (OCR: opiata/peinomocnictwa).
+        pattern: "(?i)((?:op[łl]ata\\s+skarbowa|opiata\\s+skarbowa|wpis\\s+od\\s+odw)[^\\n]{10,300}(?:\\n(?!\\s*(?:Dok|Strona|Dokument|Bank\\s))[^\\n]{0,200}){0,2})"
         group: 1
         normalize: [collapse_ws]

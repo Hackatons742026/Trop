@@ -75,6 +75,14 @@ def date_pl(value: Any) -> str | None:
             return date(y, mo, d).isoformat()
         except ValueError:
             return None
+    # OCR: "20 04 2026"
+    m = re.fullmatch(r"(\d{1,2})\s+(\d{1,2})\s+(\d{4})", text)
+    if m:
+        d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        try:
+            return date(y, mo, d).isoformat()
+        except ValueError:
+            return None
     # Day-month-year with words: 13 października 2025
     months = {
         "stycznia": 1,
