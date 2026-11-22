@@ -20,6 +20,8 @@ _PHRASE_TO_ID: tuple[tuple[str, int], ...] = (
     (r"unieważnieni\w*\s+postępowania", 9),
     # Narrative filings: "Zamawiający … unieważnił postępowanie" (incl. OCR typos).
     (r"unieważni\w*\s+postępowanie", 9),
+    (r"czynno[sś]ci\s+unieważnie", 9),
+    (r"unieważnieni[aá]\s+postępowania", 9),
     (r"odpowiedzi/?wyjaśnienia\s+do\s+SWZ", 6),
     (r"wyjaśnieni\w*\s+do\s+(?:treści\s+)?(?:SWZ|Specyfikacji)", 6),
     (r"odpowiedzi\s+(?:i\s+wyjaśnienia\s+)?do\s+(?:treści\s+)?(?:SWZ|Specyfikacji)", 6),

@@ -232,9 +232,11 @@ def company_name(value: Any) -> str | None:
     while prev != text:
         prev = text
         text = _COMPANY_BOILERPLATE.sub("", text).strip(" ,;-:")
+    if not text[:1].isupper():
+        return None
     if re.match(
-        r"(?i)^(konsorcjum|mocodawc|pe[łl]?nomocn|zamawiając|odwołując|"
-        r"c\s*t\s*w\s*o)\b",
+        r"(?i)^(konsorcjum\b|mocodawc|pe[łl]?nomocn|zamawiaj|odwo[łl]uj|"
+        r"c\s*t\s*w\s*o\b|wskazuje\b|nie\s+może\b|może\s+ponieść\b)",
         text,
     ):
         return None

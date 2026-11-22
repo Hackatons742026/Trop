@@ -196,14 +196,24 @@ def _extract_list(text: str, blocks: dict[str, str], lst: ListSpec) -> list[dict
                 continue
             items.append(item)
         if items:
-            return items
+            return _finalize_list_items(lst.path, items)
         # No item matches → one item from the whole list scope (single mocodawca).
 
     # Default: single item from block/scope
     item = _extract_list_item(scope, text, blocks, lst.fields)
     if any(v is not None and v != [] for v in _leaf_values(item)):
-        return [item]
+        return _finalize_list_items(lst.path, [item])
     return []
+
+
+def _finalize_list_items(path: str, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Domain post-pass for multi-party lists (joint contracting authorities)."""
+    if path == "Zamawiajacy" and len(items) > 1:
+        if any(it.get("prowadzacy_postepowanie") == 1 for it in items):
+            for it in items:
+                if it.get("prowadzacy_postepowanie") is None:
+                    it["prowadzacy_postepowanie"] = 0
+    return items
 
 
 def _leaf_values(obj: Any) -> list[Any]:

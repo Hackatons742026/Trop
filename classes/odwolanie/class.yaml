@@ -21,16 +21,17 @@ detect:
 blocks:
   - id: header
     start: null
-    end: "(?i)odwołując"
+    end: "(?i)odwo[łl]uj"
   - id: odwolujacy
-    # Heading / label only — not "zamawiającego" mid-sentence.
+    # Party label on its own line. OCR often drops diacritics (Odwołujacy).
+    # Require trailing : or end-ish so prose "Odwołujący wskazuje" does not match.
     # slice_blocks already passes re.MULTILINE.
-    start: "^\\s*Odwołując"
-    end: "^\\s*(?:Zamawiając|dotyczy\\b|ODWOŁANIE\\b|Zarzut)"
+    start: "^\\s*Odwo[łl]uj[aą]c\\w*\\s*:"
+    end: "^\\s*(?:Zamawiaj[aą]c\\w*\\s*:|Dotyczy\\b|ODWO[ŁL]ANIE\\b|Zarzut)"
   - id: zamawiajacy
     # Stop before Odwołujący when Zamawiający is printed first (common layout).
-    start: "^\\s*Zamawiając"
-    end: "^\\s*(?:Odwołując|dotyczy\\b|ODWOŁANIE\\b|Zarzut)|(?i:dotycząc[ae]\\s+postępowania|zamówieni[ae]\\s+publiczn|przedmiot|zarzut)"
+    start: "^\\s*Zamawiaj[aą]c\\w*\\s*:"
+    end: "^\\s*(?:Odwo[łl]uj[aą]c\\w*\\s*:|Dotyczy\\b|ODWO[ŁL]ANIE\\b|Zarzut)|(?i:dotycząc[ae]\\s+postępowania|zamówieni[ae]\\s+publiczn|przedmiot|zarzut)"
   - id: zarzuty
     start: "(?i)zarzut"
     end: null
@@ -83,8 +84,8 @@ fields:
     extractors:
       # Hold-out style: "polegających na: 1) wyborze … 2) zaniechaniu …"
       - type: regex
-        # First numbered challenged act; allow one wrapped line after the item.
-        pattern: "(?i)(?:polegających\\s+na|odwołanie\\s+wobec|zaskarżon\\w*\\s+czynnoś)[\\s\\S]{0,120}?\\d\\)\\s*([^\\n]{8,220}(?:\\n[^\\n]{5,120})?)"
+        # First numbered challenged act (1) or 1.); allow one wrapped line.
+        pattern: "(?i)(?:polegających\\s+na|odwołanie\\s+wobec|zaskarżon\\w*\\s+czynnoś|wnoszę\\s+odwołanie\\s+wobec)[\\s\\S]{0,160}?\\d[\\.\\)]\\s*([^\\n]{8,220}(?:\\n[^\\n]{5,120})?)"
         group: 1
         normalize: [collapse_ws]
         map_to_powod_id: true
@@ -213,14 +214,20 @@ lists:
             pattern: "(?i)Działając\\s+w\\s+imieniu\\s+(?:Konsorcjum\\s*[:\\-]?\\s*)?([^,\\n(]{5,120})"
             group: 1
             normalize: [collapse_ws, strip_titles, company_name]
+          # OCR: Odwołujacy: / Odwołujący: then firm on next line.
           - type: regex
-            pattern: "(?i)odwołując[ya]\\s*[:\\-]?\\s*(?:lider\\s+konsorcjum\\s*[:\\-]?)?\\s*([^\\n]{5,200})"
+            pattern: "(?i)odwo[łl]uj[aą]c\\w*\\s*:\\s*\\n\\s*([^\\n]{5,160})"
+            group: 1
+            normalize: [collapse_ws, strip_titles, company_name]
+          - type: regex
+            pattern: "(?i)odwo[łl]uj[aą]c\\w*\\s*[:\\-]?\\s*(?:lider\\s+konsorcjum\\s*[:\\-]?)?\\s*([^\\n]{5,200})"
             group: 1
             normalize: [collapse_ws, strip_titles, company_name]
       - key: przez-pelnomocnika
         extractors:
           - type: regex
-            pattern: "(?i)(reprezentowan[ya]\\s+przez|przez\\s+pełnomocnika|pełnomocnik)"
+            # petnomocnika / pehnomocnika: common OCR damage to „pełnomocnika”.
+            pattern: "(?i)(reprezentowan[ya]\\s+przez|przez\\s+pe\\w{0,3}nomocnika|pe\\w{0,3}nomocnik)"
             group: 0
             const_on_match: 1
           - type: const
@@ -228,14 +235,19 @@ lists:
       - key: pelnomocnik.imie_nazwisko
         extractors:
           - type: regex
-            # "reprezentowana przez: r. pr. Aleksandra Marciniak, r. pr. …"
-            pattern: "(?i:reprezentowan[ya]\\s+przez)\\s*[:\\-]?\\s*((?:adw\\.?|r\\.?\\s*pr\\.?|radca\\s+prawny)\\s+)?([A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
+            # Name on the line after "przez pełnomocnika:" / "petnomocnika:"
+            pattern: "(?i:przez\\s+pe\\w{0,3}nomocnika)\\s*:\\s*\\n\\s*((?:adw\\.?|r\\.?\\s*pr\\.?|radca\\s+prawny)\\s+)?([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\-]+\\s+[A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\-]+)"
             group: 2
-            normalize: [collapse_ws, strip_titles, nominative]
+            normalize: [collapse_ws, strip_titles, person_name, nominative]
           - type: regex
-            pattern: "(?i:pełnomocnik(?:a|iem)?)\\s*[:\\-]?\\s*((?i:adw\\.?|r\\.?\\s*pr\\.?|radca\\s+prawny)?\\s*[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
+            # "reprezentowana przez: r. pr. Aleksandra Marciniak, r. pr. …"
+            pattern: "(?i:reprezentowan[ya]\\s+przez(?:\\s+pe\\w{0,3}nomocnika)?)\\s*[:\\-]?\\s*((?:adw\\.?|r\\.?\\s*pr\\.?|radca\\s+prawny)\\s+)?([A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
+            group: 2
+            normalize: [collapse_ws, strip_titles, person_name, nominative]
+          - type: regex
+            pattern: "(?i:pe\\w{0,3}nomocnik(?:a|iem)?)\\s*[:\\-]?\\s*((?i:adw\\.?|r\\.?\\s*pr\\.?|radca\\s+prawny)?\\s*[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
             group: 1
-            normalize: [collapse_ws, strip_titles, nominative]
+            normalize: [collapse_ws, strip_titles, person_name, nominative]
       - key: pelnomocnik.nazwa
         extractors:
           # Full firm on the correspondence line, including partner names before Kancelaria.
@@ -266,7 +278,8 @@ lists:
     block: zamawiajacy
     # Joint contracting: "1) Zamawiający – Lider… 2) Zamawiający – Partner…"
     mode: multi_from_regex
-    item_pattern: "(?i)(?:^|\\n)\\s*\\d+\\)\\s*Zamawiając\\w*"
+    # Require Zamawiający role, or an OCR joint list of public-body names.
+    item_pattern: "(?i)(?:^|\\n)\\s*\\d+\\)\\s*(?:Zamawiaj[aą]c\\w*|Zarząd\\s+Dróg|Zakład\\s+Gospodarki|Gmina\\b|Powiat\\b|Urząd\\b|Miasto\\b|Centrum\\b|Szpital\\b|Komenda\\b|Zespół\\b)"
     fields:
       - key: krs
         extractors:
@@ -289,23 +302,33 @@ lists:
       - key: nazwa
         extractors:
           - type: regex
-            # Skip the joint-proceeding parenthetical; take the firm line.
-            pattern: "(?i)(?:Zamawiając\\w*\\s*[–\\-]\\s*(?:Lider|Partner)[^\\n]*\\n|zamawiając[ya]\\s*(?:\\([^)]*\\))?\\s*[:\\-]?\\s*)\\s*([A-ZĄĆĘŁŃÓŚŹŻ][^\\n]{3,160})"
+            # Numbered joint member: "1) Zarząd Dróg…" / "1) Zamawiający – Lider…"
+            pattern: "(?i)\\d+\\)\\s*(?:Zamawiaj[aą]c\\w*\\s*[–\\-]?\\s*(?:Lider|Partner)[^\\n]*\\n\\s*)?([A-ZĄĆĘŁŃÓŚŹŻ][^\\n]{3,160})"
             group: 1
             normalize: [collapse_ws, strip_titles, company_name]
           - type: regex
-            pattern: "([A-ZĄĆĘŁŃÓŚŹŻ][^\\n]{2,100}?(?i:S\\.A\\.|sp\\.\\s*z\\s*o\\.o\\.|sp\\.\\s*k\\.|sp\\.\\s*j\\.|Urząd|Gmina|Powiat|Centrum|Zespół|Zarząd|Szpital|Komenda))"
+            # Prefer the whole line after the Zamawiający label (OCR-safe).
+            pattern: "(?i)zamawiaj[aą]c\\w*\\s*:\\s*\\n\\s*([^\\n]{5,160})"
+            group: 1
+            normalize: [collapse_ws, strip_titles, company_name]
+          - type: regex
+            # Skip the joint-proceeding parenthetical; take the firm line.
+            pattern: "(?i)(?:Zamawiaj[aą]c\\w*\\s*[–\\-]\\s*(?:Lider|Partner)[^\\n]*\\n|zamawiaj[aą]c\\w*\\s*(?:\\([^)]*\\))?\\s*[:\\-]?\\s*)\\s*([A-ZĄĆĘŁŃÓŚŹŻ][^\\n]{3,160})"
+            group: 1
+            normalize: [collapse_ws, strip_titles, company_name]
+          - type: regex
+            pattern: "([A-ZĄĆĘŁŃÓŚŹŻ][^\\n]{2,100}?(?i:S\\.A\\.|sp\\.\\s*z\\s*o\\.o\\.|sp\\.\\s*k\\.|sp\\.\\s*j\\.|Urząd\\b|Gmina\\b|Szpital|Komenda))"
             group: 1
             normalize: [collapse_ws, company_name]
       - key: prowadzacy_postepowanie
         extractors:
           # Only joint-contracting role labels — not "Lider Konsorcjum" from Odwołujący.
           - type: regex
-            pattern: "(?i)Zamawiając\\w*\\s*[–\\-]\\s*Lider|Lider\\s+postępowania|prowadząc[ya]\\s+postępowanie"
+            pattern: "(?i)Zamawiaj[aą]c\\w*\\s*[–\\-]\\s*Lider|Lider\\s+postępowania|prowadząc[ya]\\s+postępowanie"
             group: 0
             const_on_match: 1
           - type: regex
-            pattern: "(?i)Zamawiając\\w*\\s*[–\\-]\\s*Partner|\\bPartner\\s+postępowania\\b"
+            pattern: "(?i)Zamawiaj[aą]c\\w*\\s*[–\\-]\\s*Partner|\\bPartner\\s+postępowania\\b"
             group: 0
             const_on_match: 0
           - type: const
