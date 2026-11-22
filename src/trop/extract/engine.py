@@ -218,7 +218,17 @@ def _finalize_list_items(path: str, items: list[dict[str, Any]]) -> list[dict[st
             data = it.get("data")
             if not isinstance(data, dict):
                 continue
-            # Sole trader: person name + NIP without KRS → osoba_fizyczna.
+            signers = it.get("podpisujacy") if isinstance(it.get("podpisujacy"), list) else []
+            # Sole-trader scans often only expose the name via the e-sign line.
+            if (
+                not data.get("imie_nazwisko")
+                and data.get("nip")
+                and not data.get("krs")
+                and len(signers) == 1
+                and isinstance(signers[0], dict)
+                and signers[0].get("imie_nazwisko")
+            ):
+                data["imie_nazwisko"] = signers[0]["imie_nazwisko"]
             if (
                 data.get("typ") is None
                 and data.get("imie_nazwisko")
