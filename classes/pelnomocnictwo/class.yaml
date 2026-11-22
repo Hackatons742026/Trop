@@ -122,11 +122,6 @@ lists:
             group: 0
             const_on_match: "osoba_fizyczna"
           - type: regex
-            # OCR sole trader: NIP present, no KRS / legal-form cue in the grant.
-            pattern: "(?is)\\bNIP\\b(?![\\s\\S]*?(?:\\bKRS\\b|S\\.A\\.|sp\\.\\s*z\\s*o\\.\\s*o\\.|sp\\.\\s*[kj]\\.|spółk))"
-            group: 0
-            const_on_match: "osoba_fizyczna"
-          - type: regex
             pattern: "(?i)(\\bKRS\\b|S\\.A\\.|sp\\.\\s*z\\s*o\\.\\s*o\\.|sp\\.\\s*[kj]\\.|\\bspółk)"
             group: 0
             const_on_match: "osoba_prawna"
