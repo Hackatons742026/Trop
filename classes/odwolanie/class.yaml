@@ -86,7 +86,7 @@ fields:
     extractors:
       # Intro sentence before the zarzuty list carries the challenged act.
       - type: regex
-        pattern: "(?i)((?:Zamawiający|w\\s+dniu).{0,200}?(?:unieważni\\w*|odrzuc\\w*|wyklucz\\w*|wybra\\w*|udostępni\\w*|zaniecha\\w*|modyfikacj\\w*|poinformowa\\w*).{0,100})"
+        pattern: "(?i)((?:Zamawiający|w\\s+dniu).{0,220}?(?:unieważni\\w*|odrzuc\\w*|wyklucz\\w*|wybra\\w*|udostępni\\w*|zaniecha\\w*|modyfikacj\\w*|zmodyfikowa\\w*|opublikowa\\w*|przekaza\\w*|poinformowa\\w*|wezwa\\w*|ogłosi\\w*).{0,120})"
         group: 1
         normalize: [collapse_ws]
         map_to_powod_id: true

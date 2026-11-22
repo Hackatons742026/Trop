@@ -62,6 +62,77 @@ def _skeleton_props(node: dict[str, Any]) -> Any:
     return None
 
 
+def _extract_list_item(
+    chunk: str,
+    text: str,
+    blocks: dict[str, str],
+    fields: tuple,
+    *,
+    label: str | None = None,
+) -> dict[str, Any]:
+    item: dict[str, Any] = {}
+    for field in fields:
+        # Extractor-level ``block:`` scopes this field (e.g. signatures).
+        block_id = next((e.block for e in field.extractors if e.block), None)
+        if block_id:
+            field_scope = resolve_scope(text, blocks, block_id)
+            # Consortium: keep only the "W imieniu <label>:" slice of the
+            # signature block so each mocodawca gets its own signatories.
+            if label and field.key == "podpisujacy":
+                sliced = _slice_imieniu(field_scope, label)
+                if sliced:
+                    field_scope = sliced
+        else:
+            field_scope = chunk
+        val = first_hit(field_scope, field.extractors)
+        # Chunk miss → try a label-scoped window in the full document (KRS/NIP
+        # for a consortium member live in the preamble, not the signature slice).
+        if val is None and label and field.key.startswith("data."):
+            window = _window_around_label(text, label, radius=180)
+            if window:
+                val = first_hit(window, field.extractors)
+        if val is None and field_scope is not text and not block_id:
+            val = first_hit(text, field.extractors)
+        _set_nested_item(item, field.key, val)
+    return item
+
+
+def _norm_firm_label(label: str) -> str:
+    """Strip trailing punctuation but keep internal dots (``sp. z o.o.``)."""
+    return label.strip().strip(":;").strip()
+
+
+def _slice_imieniu(text: str, label: str) -> str | None:
+    """Return the signature paragraph for ``W imieniu <label>:`` … next heading."""
+    if not text or not label:
+        return None
+    firm = _norm_firm_label(label)
+    escaped = re.escape(firm)
+    # Trailing ``.?``: gold labels may omit the final dot of ``sp. z o.o.``.
+    try:
+        cre = re.compile(
+            rf"(?i)W\s+imieniu\s+{escaped}\.?\s*:(.*?)(?=(?:W\s+imieniu\s+)|(?:Pełnomocnictwo\s+przyjmuję)|$)",
+            flags=re.DOTALL,
+        )
+    except re.error:
+        return None
+    m = cre.search(text)
+    return m.group(0) if m else None
+
+
+def _window_around_label(text: str, label: str, *, radius: int) -> str | None:
+    if not text or not label:
+        return None
+    firm = _norm_firm_label(label)
+    idx = text.lower().find(firm.lower())
+    if idx < 0:
+        # Retry without a trailing dot on legal-form suffixes.
+        idx = text.lower().find(firm.rstrip(".").lower())
+    if idx < 0:
+        return None
+    return text[max(0, idx) : idx + len(firm) + radius]
+
+
 def _extract_list(text: str, blocks: dict[str, str], lst: ListSpec) -> list[dict[str, Any]]:
     scope = resolve_scope(text, blocks, lst.block)
     mode = (lst.mode or "single").lower()
@@ -80,27 +151,28 @@ def _extract_list(text: str, blocks: dict[str, str], lst: ListSpec) -> list[dict
             else:
                 end = min(len(scope), match.end() + 240)
             chunk = scope[start:end]
-            item: dict[str, Any] = {}
-            for field in lst.fields:
-                val = first_hit(chunk, field.extractors)
-                _set_nested_item(item, field.key, val)
+            label = next((g for g in match.groups() if g), None)
+            item = _extract_list_item(chunk, text, blocks, lst.fields, label=label)
+            # Only seed data.nazwa when this list actually declares that field
+            # (mocodawca). Attorney lists must not grow a nested ``data`` object.
+            has_nazwa_field = any(f.key == "data.nazwa" for f in lst.fields)
+            if (
+                label
+                and has_nazwa_field
+                and not (isinstance(item.get("data"), dict) and item["data"].get("nazwa"))
+            ):
+                from trop.normalize.fns import collapse_ws
+
+                _set_nested_item(item, "data.nazwa", collapse_ws(label.strip().rstrip(".,;")))
             # Avoid empty-only items
             if any(v is not None and v != [] for v in _leaf_values(item)):
                 items.append(item)
-        return items
+        if items:
+            return items
+        # No item matches → one item from the whole list scope (single mocodawca).
 
     # Default: single item from block/scope
-    item = {}
-    for field in lst.fields:
-        # An extractor-level ``block:`` scopes this field instead of the list
-        # block (e.g. signatures live after the mocodawca section).
-        block_id = next((e.block for e in field.extractors if e.block), None)
-        field_scope = resolve_scope(text, blocks, block_id) if block_id else scope
-        # regex_all results are lists; first_hit skips empty ones, and an
-        # unmatched array field becomes [] from the schema skeleton later.
-        val = first_hit(field_scope, field.extractors)
-        _set_nested_item(item, field.key, val)
-
+    item = _extract_list_item(scope, text, blocks, lst.fields)
     if any(v is not None and v != [] for v in _leaf_values(item)):
         return [item]
     return []

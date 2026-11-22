@@ -19,10 +19,10 @@ blocks:
   - id: mocodawca
     # "upoważniam" (the grant), not "upoważni…" which also hits the adjective
     # in "osoba upoważniona do reprezentacji <firma> (KRS …)".
-    # The firm often follows the uppercase title (possibly letter-spaced)
-    # before "(dalej: „Mocodawca”)", so the title also opens the block.
-    start: "^[ \\t]*P[ \\t]*E[ \\t]*Ł[ \\t]*N[ \\t]*O[ \\t]*M[ \\t]*O[ \\t]*C[ \\t]*N[ \\t]*I[ \\t]*C[ \\t]*T[ \\t]*W[ \\t]*O|(?i:mocodawc|udzielając[ya]|ja,?\\s+niżej|spółka)"
-    end: "(?i)(pełnomocnik|upoważniam|udziela)"
+    # Keep the block open through the signature section so consortium
+    # "W imieniu <firma>:" lines stay inside mocodawca.
+    start: "^[ \\t]*P[ \\t]*E[ \\t]*Ł[ \\t]*N[ \\t]*O[ \\t]*M[ \\t]*O[ \\t]*C[ \\t]*N[ \\t]*I[ \\t]*C[ \\t]*T[ \\t]*W[ \\t]*O|(?i:mocodawc|udzielając[ya]|ja,?\\s+niżej|spółka|Wykonawcy\\s+wspólnie)"
+    end: "(?i)(Pełnomocnictwo\\s+przyjmuję|§\\s*3|pełnomocnictwo\\s+obejmuje)"
   # Attorneys are listed between the grant ("Pełnomocnik/Pełnomocnicy",
   # "upoważniam", "udzielam pełnomocnictwa", "ustanawiam") and the scope /
   # next section. Never end at "PESEL": it belongs to the attorney entry.
@@ -38,7 +38,10 @@ fields: []
 lists:
   - path: mocodawca
     block: mocodawca
-    mode: single
+    # Consortium PoAs list members as "1) Firm…; 2) Firm…" or sign as
+    # "W imieniu Firm:". Single-grant PoAs fall back to one item from the block.
+    mode: multi_from_regex
+    item_pattern: "(?i)W\\s+imieniu\\s+([^:\\n]{3,120})\\s*:"
     fields:
       - key: data.krs
         extractors:
@@ -55,16 +58,20 @@ lists:
       - key: data.nazwa
         extractors:
           - type: regex
-            # "Mocodawcą jest Belmoria Rozwiązania S.A., ul. …"
-            pattern: "(?i)mocodawc\\w*\\s+jest\\s+([^,\\n]{3,120})"
+            # "Mocodawcą jest Belmoria Rozwiązania S.A., ul. …" / "(dalej: …)"
+            pattern: "(?i)mocodawc\\w*\\s+jest\\s+([^,(\\n]{3,120})"
             group: 1
             normalize: [collapse_ws, strip_titles]
           - type: regex
-            pattern: "(?i)działając\\s+w\\s+imieniu\\s+([^,\\n]{3,120})"
+            pattern: "(?i)działając\\s+w\\s+imieniu\\s+([^,(\\n]{3,120})"
             group: 1
             normalize: [collapse_ws, strip_titles]
           - type: regex
-            pattern: "(?i)(?:mocodawca|spółka|firma)\\s*[:\\-]?\\s*([^,\\n]{3,120})"
+            pattern: "(?i)w\\s+imieniu\\s+([^,:(\\n]{3,120})\\s*:"
+            group: 1
+            normalize: [collapse_ws, strip_titles]
+          - type: regex
+            pattern: "(?i)(?:mocodawca|spółka|firma)\\s*[:\\-]?\\s*([^,(\\n]{3,120})"
             group: 1
             normalize: [collapse_ws, strip_titles]
           # Case-sensitive on purpose: [A-Z…] must mean an uppercase initial, so
