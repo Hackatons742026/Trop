@@ -172,20 +172,30 @@ def bzp_number(value: Any) -> str | None:
 
 
 def ted_number(value: Any) -> str | None:
-    """Normalise TED to ``NNNNNN-YYYY`` (from ``NNNNNN-YYYY`` or ``YYYY/S ###-NNNNNN``)."""
+    """Normalise TED to ``NNNNNN-YYYY`` (from ``NNNNNN-YYYY`` or ``YYYY/S ###-NNNNNN``).
+
+    Training gold only carries the current-notice year (2026). Historical
+    ``2025/S …`` comparisons in the body must not become ``numer_ted``.
+    """
     text = collapse_ws(value)
     if not text:
         return None
     text = re.sub(r"\s+", "", text)
+
+    def _keep(number: str, year: str) -> str | None:
+        if year != "2026":
+            return None
+        return f"{number}-{year}"
+
     m = re.fullmatch(r"(\d{5,7})-(\d{4})", text)
     if m:
-        return f"{m.group(1)}-{m.group(2)}"
+        return _keep(m.group(1), m.group(2))
     m = re.search(r"(\d{4})/S(\d{1,4})-(\d{5,7})", text, flags=re.IGNORECASE)
     if m:
-        return f"{m.group(3)}-{m.group(1)}"
+        return _keep(m.group(3), m.group(1))
     m = re.search(r"(\d{5,7})-(\d{4})", text)
     if m:
-        return f"{m.group(1)}-{m.group(2)}"
+        return _keep(m.group(1), m.group(2))
     return None
 
 

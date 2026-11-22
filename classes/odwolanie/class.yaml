@@ -83,7 +83,8 @@ fields:
     extractors:
       # Hold-out style: "polegających na: 1) wyborze … 2) zaniechaniu …"
       - type: regex
-        pattern: "(?i)(?:polegających\\s+na|odwołanie\\s+wobec|zaskarżon\\w*\\s+czynnoś)[\\s\\S]{0,120}?\\d\\)\\s*([^\\n]{8,220})"
+        # First numbered challenged act; allow one wrapped line after the item.
+        pattern: "(?i)(?:polegających\\s+na|odwołanie\\s+wobec|zaskarżon\\w*\\s+czynnoś)[\\s\\S]{0,120}?\\d\\)\\s*([^\\n]{8,220}(?:\\n[^\\n]{5,120})?)"
         group: 1
         normalize: [collapse_ws]
         map_to_powod_id: true
@@ -121,8 +122,13 @@ fields:
 
   - path: ZamowieniePubliczne.numer_ted
     extractors:
+      # Labels / DUUE. ted_number drops non-2026 years (historical 2025/S noise).
       - type: regex
-        pattern: "(?i)(?:TED|nr\\s*TED|numer\\s*TED)[^\\d]{0,20}(\\d{5,7}\\s*-\\s*\\d{4})"
+        pattern: "(?i)(?:numer\\s+ogłoszenia\\s+)?TED\\s*[:\\-]?\\s*(\\d{4}\\s*/\\s*S\\s*\\d{1,4}\\s*-\\s*\\d{5,7}|\\d{5,7}\\s*-\\s*\\d{4})"
+        group: 1
+        normalize: [ted_number]
+      - type: regex
+        pattern: "(?i)(?:Dzienniku\\s+Urzędowym(?:\\s+Unii\\s+Europejskiej|\\s+UE)?|Unii\\s+Europejskiej)\\s*(?:nr|:)?\\s*(\\d{4}\\s*/\\s*S\\s*\\d{1,4}\\s*-\\s*\\d{5,7}|\\d{5,7}\\s*-\\s*\\d{4})"
         group: 1
         normalize: [ted_number]
       - type: regex
@@ -160,6 +166,11 @@ fields:
         pattern: "(?i)pn\\.\\s*[„\"«]\\s*([^”\"»]{10,300})\\s*[”\"»]"
         group: 1
         normalize: [collapse_ws]
+      - type: regex
+        # OCR often drops the opening quote: pn. Title…", nr referencyjny
+        pattern: "(?is)pn\\.\\s*([^\\n”\"»]{8,200}?(?:\\n[^\\n”\"»]{3,120}){0,3}?)\\s*[”\"»~]?,?\\s*(?:nr|numer)\\s+referencyj"
+        group: 1
+        normalize: [collapse_ws]
       - type: label
         labels: ["Przedmiot zamówienia", "Tytuł zamówienia", "Nazwa zamówienia"]
         value_pattern: "(.{10,300}?)"
@@ -187,7 +198,8 @@ lists:
       - key: regon
         extractors:
           - type: regex
-            pattern: "(?i)\\bREGON\\b\\s*[:\\-]?\\s*([\\d\\s]{7,16})"
+            # 9 or 14 digits only — do not swallow the next "2)" consortium index.
+            pattern: "(?i)\\bREGON\\b\\s*[:\\-]?\\s*(\\d{9}|\\d{14})\\b"
             group: 1
             normalize: [digits_only]
       - key: nazwa
@@ -271,7 +283,7 @@ lists:
       - key: regon
         extractors:
           - type: regex
-            pattern: "(?i)\\bREGON\\b\\s*[:\\-]?\\s*([\\d\\s]{7,16})"
+            pattern: "(?i)\\bREGON\\b\\s*[:\\-]?\\s*(\\d{9}|\\d{14})\\b"
             group: 1
             normalize: [digits_only]
       - key: nazwa
