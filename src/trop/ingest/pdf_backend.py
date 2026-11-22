@@ -5,6 +5,7 @@ No PyMuPDF on the default path.
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, runtime_checkable
@@ -12,6 +13,12 @@ from typing import Protocol, runtime_checkable
 import numpy as np
 import pypdfium2 as pdfium
 from numpy.typing import NDArray
+
+# PDFium is not thread-safe: no two PDFium calls may run at the same time, not
+# even on different documents (ctypes releases the GIL, so they really do
+# overlap). Every pypdfium2 call goes through this lock so the threaded
+# orchestrator and concurrent Streamlit sessions cannot crash the process.
+_PDFIUM_LOCK = threading.RLock()
 
 
 @dataclass(frozen=True)
@@ -40,57 +47,66 @@ class PdfBackend(Protocol):
 
 
 class PdfiumBackend:
-    """Default backend backed by pypdfium2 / PDFium."""
+    """Default backend backed by pypdfium2 / PDFium.
+
+    All PDFium access is serialized through ``_PDFIUM_LOCK``.
+    """
 
     def __init__(self, path: Path | str) -> None:
         self._path = Path(path)
-        self._doc = pdfium.PdfDocument(str(self._path))
+        with _PDFIUM_LOCK:
+            self._doc = pdfium.PdfDocument(str(self._path))
 
     def page_count(self) -> int:
-        return len(self._doc)
+        with _PDFIUM_LOCK:
+            return len(self._doc)
 
     def page_size(self, index: int) -> tuple[float, float]:
-        page = self._doc[index]
-        try:
-            width, height = page.get_size()
-            return float(width), float(height)
-        finally:
-            page.close()
+        with _PDFIUM_LOCK:
+            page = self._doc[index]
+            try:
+                width, height = page.get_size()
+                return float(width), float(height)
+            finally:
+                page.close()
 
     def extract_text(self, index: int) -> str:
-        page = self._doc[index]
-        try:
-            textpage = page.get_textpage()
+        with _PDFIUM_LOCK:
+            page = self._doc[index]
             try:
-                return textpage.get_text_bounded() or ""
+                textpage = page.get_textpage()
+                try:
+                    return textpage.get_text_bounded() or ""
+                finally:
+                    textpage.close()
             finally:
-                textpage.close()
-        finally:
-            page.close()
+                page.close()
 
     def render_page(self, index: int, dpi: int) -> RenderedPage:
-        page = self._doc[index]
-        try:
-            width_pt, height_pt = page.get_size()
-            scale = dpi / 72.0
-            bitmap = page.render(scale=scale)
+        with _PDFIUM_LOCK:
+            page = self._doc[index]
             try:
-                # to_numpy may return BGR/BGRx; convert to RGB for OCR.
-                arr = bitmap.to_numpy()
+                width_pt, height_pt = page.get_size()
+                scale = dpi / 72.0
+                bitmap = page.render(scale=scale)
+                try:
+                    # to_numpy is a view of the bitmap buffer (BGR/BGRx); copy it
+                    # into a standalone RGB array before the bitmap is closed.
+                    rgb = _to_rgb(bitmap.to_numpy())
+                finally:
+                    bitmap.close()
             finally:
-                bitmap.close()
-            rgb = _to_rgb(arr)
-            return RenderedPage(
-                index=index,
-                image=rgb,
-                width_pt=float(width_pt),
-                height_pt=float(height_pt),
-            )
-        finally:
-            page.close()
+                page.close()
+        return RenderedPage(
+            index=index,
+            image=rgb,
+            width_pt=float(width_pt),
+            height_pt=float(height_pt),
+        )
 
     def close(self) -> None:
-        self._doc.close()
+        with _PDFIUM_LOCK:
+            self._doc.close()
 
     def __enter__(self) -> PdfiumBackend:
         return self

@@ -8,7 +8,9 @@ paths:
 
 # Concurrent PDF workers. Default 2 matches the 2 vCPU judge VM.
 # Null → max(1, cpu_count) when cpu<=2, else max(1, cpu//2).
-# RapidOCR inference is process-wide locked (see ocr notes), so workers>1 is safe.
+# Neither PDFium nor RapidOCR is thread-safe: each sits behind its own
+# process-wide lock (trop.ingest.pdf_backend / trop.ingest.ocr). That is what
+# makes workers>1 safe — never call pypdfium2 or RapidOCR around those locks.
 workers: 2
 
 # Render DPI for OCR pages (capped by max_dpi).
