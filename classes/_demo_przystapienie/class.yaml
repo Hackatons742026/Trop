@@ -1,0 +1,40 @@
+# Docs-only demo (folder starts with `_` → registry ignores it).
+# Copy/rename without the leading `_` only when experimenting locally.
+# Detects "przystąpienie do odwołania" style documents.
+id: _demo_przystapienie
+label: Przystąpienie do odwołania (demo, not registered)
+
+detect:
+  threshold: 5.0
+  margin: 1.5
+  keywords:
+    - { pattern: "(?i)przystąpieni[ea]", weight: 5.0 }
+    - { pattern: "(?i)przystępuje\\s+do\\s+odwołania", weight: 4.0 }
+    - { pattern: "(?i)wstąpieni[ea]\\s+do\\s+odwołania", weight: 3.0 }
+    - { pattern: "(?i)\\bodwołani", weight: 1.0 }
+
+blocks:
+  - id: body
+    start: null
+    end: null
+
+fields:
+  - path: demo.sygnatura
+    extractors:
+      - type: regex
+        pattern: "(?i)sygnatura\\s*[:\\-]?\\s*([A-Z0-9/\\-]+)"
+        group: 1
+        normalize: [collapse_ws]
+      - type: label
+        labels: ["Sygnatura", "Sygn. akt"]
+        value_pattern: "([A-Z0-9/\\-]{3,40})"
+        normalize: [collapse_ws]
+
+  - path: demo.strona
+    extractors:
+      - type: regex
+        pattern: "(?i)przystępując[ya]\\s*[:\\-]?\\s*([^\\n]{5,200})"
+        group: 1
+        normalize: [collapse_ws, strip_titles]
+
+lists: []

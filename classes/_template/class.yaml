@@ -1,0 +1,23 @@
+# Skeleton document class — copy via: trop new-class <id>
+# Folders starting with "_" are NOT registered by the class loader.
+id: __CLASS_ID__
+label: "__CLASS_LABEL__"
+
+detect:
+  threshold: 5.0
+  margin: 1.5
+  keywords:
+    # Content-only detection (never use the filename).
+    - { pattern: "(?i)\\bexample_keyword\\b", weight: 3.0 }
+
+blocks: []
+
+fields:
+  # - path: example.field
+  #   extractors:
+  #     - type: regex
+  #       pattern: "(?i)label\\s*[:\\-]?\\s*(.+)"
+  #       group: 1
+  #       normalize: [collapse_ws]
+
+lists: []

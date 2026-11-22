@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "trop://classes/__CLASS_ID__/schema.json",
+  "title": "__CLASS_ID__",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {}
+}

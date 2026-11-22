@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "trop://classes/_demo_przystapienie/schema.json",
+  "title": "_demo_przystapienie",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["demo"],
+  "properties": {
+    "demo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sygnatura", "strona"],
+      "properties": {
+        "sygnatura": {"type": ["string", "null"]},
+        "strona": {"type": ["string", "null"]}
+      }
+    }
+  }
+}
