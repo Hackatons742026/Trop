@@ -200,6 +200,37 @@ def strip_titles(value: Any) -> str | None:
     return text or None
 
 
+_COMPANY_BOILERPLATE = re.compile(
+    r"(?i)^\s*(?:"
+    r"(?:p\s*e\s*[łl]\s*n\s*o\s*m\s*o\s*c\s*n\s*i\s*c\s*t\s*w\s*o|"
+    r"pe[łl]?nomocnictwo)(?:\s+procesowe)?\s+|"
+    r"(?:[a-ząćęłńóśźż]\s+){1,8}|"  # leftovers from letter-spaced titles
+    r"mocodawc\w*\s+|"
+    r"ja,?\s+niżej\s+podpisan\w*[^,.]{0,80}?reprezentacji\s+|"
+    r"konsorcjum\s+wykonawców\b[^A-ZĄĆĘŁŃÓŚŹŻ]{0,120}|"
+    r"działając\s+w\s+imieniu\s+(?:konsorcjum\s*[:\-]?\s*)?"
+    r")"
+)
+
+
+def company_name(value: Any) -> str | None:
+    """Strip leading PoA / appeal boilerplate from a captured firm name."""
+    text = collapse_ws(value)
+    if not text:
+        return None
+    prev = None
+    while prev != text:
+        prev = text
+        text = _COMPANY_BOILERPLATE.sub("", text).strip(" ,;-:")
+    if re.match(
+        r"(?i)^(konsorcjum|mocodawc|pe[łl]?nomocn|zamawiając|odwołując|"
+        r"c\s*t\s*w\s*o)\b",
+        text,
+    ):
+        return None
+    return text or None
+
+
 def _morfeusz_nominative(token: str) -> str:
     """Lemma of a name token, preferring proper-name, then noun analyses.
 
@@ -270,6 +301,8 @@ def person_name(value: Any) -> str | None:
         text,
     ):
         return None
+    # OCR often glues "HalinaBaran" — split lower→Upper boundaries.
+    text = re.sub(r"([a-ząćęłńóśźż])([A-ZĄĆĘŁŃÓŚŹŻ])", r"\1 \2", text)
     parts = [p for p in text.split() if p and not p.startswith("(")]
     if len(parts) < 2:
         return None
@@ -311,6 +344,7 @@ NORMALIZERS: dict[str, Callable[[Any], Any]] = {
     "bzp_number": bzp_number,
     "ted_number": ted_number,
     "strip_titles": strip_titles,
+    "company_name": company_name,
     "nominative": nominative,
     "person_name": person_name,
 }

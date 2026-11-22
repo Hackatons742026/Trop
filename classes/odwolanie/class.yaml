@@ -23,11 +23,14 @@ blocks:
     start: null
     end: "(?i)odwołując"
   - id: odwolujacy
-    start: "(?i)odwołując"
-    end: "(?i)zamawiając"
+    # Heading / label only — not "zamawiającego" mid-sentence.
+    # slice_blocks already passes re.MULTILINE.
+    start: "^\\s*Odwołując"
+    end: "^\\s*(?:Zamawiając|dotyczy\\b|ODWOŁANIE\\b|Zarzut)"
   - id: zamawiajacy
-    start: "(?i)zamawiając"
-    end: "(?i)(dotycząc[ae]\\s+postępowania|zamówieni[ae]\\s+publiczn|przedmiot|zarzut)"
+    # Stop before Odwołujący when Zamawiający is printed first (common layout).
+    start: "^\\s*Zamawiając"
+    end: "^\\s*(?:Odwołując|dotyczy\\b|ODWOŁANIE\\b|Zarzut)|(?i:dotycząc[ae]\\s+postępowania|zamówieni[ae]\\s+publiczn|przedmiot|zarzut)"
   - id: zarzuty
     start: "(?i)zarzut"
     end: null
@@ -189,10 +192,19 @@ lists:
             normalize: [digits_only]
       - key: nazwa
         extractors:
+          # Consortium leader line (preferred over the "Konsorcjum wykonawców…" banner).
+          - type: regex
+            pattern: "(?i)Lider\\s+Konsorcjum\\s*[:\\-]?\\s*\\n\\s*([^\\n]{5,160})"
+            group: 1
+            normalize: [collapse_ws, strip_titles, company_name]
+          - type: regex
+            pattern: "(?i)Działając\\s+w\\s+imieniu\\s+(?:Konsorcjum\\s*[:\\-]?\\s*)?([^,\\n(]{5,120})"
+            group: 1
+            normalize: [collapse_ws, strip_titles, company_name]
           - type: regex
             pattern: "(?i)odwołując[ya]\\s*[:\\-]?\\s*(?:lider\\s+konsorcjum\\s*[:\\-]?)?\\s*([^\\n]{5,200})"
             group: 1
-            normalize: [collapse_ws, strip_titles]
+            normalize: [collapse_ws, strip_titles, company_name]
       - key: przez-pelnomocnika
         extractors:
           - type: regex
@@ -214,8 +226,17 @@ lists:
             normalize: [collapse_ws, strip_titles, nominative]
       - key: pelnomocnik.nazwa
         extractors:
+          # Full firm on the correspondence line, including partner names before Kancelaria.
           - type: regex
-            pattern: "(?i)adres\\s+do\\s+korespondencji\\s*[:\\-]?\\s*(Kancelaria[\\s\\S]{3,160}?)(?=,\\s*ul\\.|\\nul\\.|\\n\\s*tel\\.)"
+            pattern: "(?i)adres\\s+do\\s+korespondencji\\s*[:\\-]?\\s*([^\\n]{5,160}?(?:Kancelaria[^\\n]{0,80}?))(?=,\\s*ul\\.|\\nul\\.|\\n\\s*tel\\.)"
+            group: 1
+            normalize: [collapse_ws]
+          - type: regex
+            pattern: "(?i)adres\\s+do\\s+korespondencji\\s*[:\\-]?\\s*([^,\\n]{5,120})"
+            group: 1
+            normalize: [collapse_ws]
+          - type: regex
+            pattern: "(?i)((?:[A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\-]+(?:\\s+|,\\s*)?){1,6}Kancelaria[^\\n]{3,80})"
             group: 1
             normalize: [collapse_ws]
           - type: regex
@@ -259,19 +280,20 @@ lists:
             # Skip the joint-proceeding parenthetical; take the firm line.
             pattern: "(?i)(?:Zamawiając\\w*\\s*[–\\-]\\s*(?:Lider|Partner)[^\\n]*\\n|zamawiając[ya]\\s*(?:\\([^)]*\\))?\\s*[:\\-]?\\s*)\\s*([A-ZĄĆĘŁŃÓŚŹŻ][^\\n]{3,160})"
             group: 1
-            normalize: [collapse_ws, strip_titles]
+            normalize: [collapse_ws, strip_titles, company_name]
           - type: regex
             pattern: "([A-ZĄĆĘŁŃÓŚŹŻ][^\\n]{2,100}?(?i:S\\.A\\.|sp\\.\\s*z\\s*o\\.o\\.|sp\\.\\s*k\\.|sp\\.\\s*j\\.|Urząd|Gmina|Powiat|Centrum|Zespół|Zarząd|Szpital|Komenda))"
             group: 1
-            normalize: [collapse_ws]
+            normalize: [collapse_ws, company_name]
       - key: prowadzacy_postepowanie
         extractors:
+          # Only joint-contracting role labels — not "Lider Konsorcjum" from Odwołujący.
           - type: regex
-            pattern: "(?i)(Lider|prowadząc[ya]\\s+postępowanie|lider\\s+postępowania)"
+            pattern: "(?i)Zamawiając\\w*\\s*[–\\-]\\s*Lider|Lider\\s+postępowania|prowadząc[ya]\\s+postępowanie"
             group: 0
             const_on_match: 1
           - type: regex
-            pattern: "(?i)\\bPartner\\b"
+            pattern: "(?i)Zamawiając\\w*\\s*[–\\-]\\s*Partner|\\bPartner\\s+postępowania\\b"
             group: 0
             const_on_match: 0
           - type: const

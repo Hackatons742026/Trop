@@ -58,6 +58,7 @@ def run_regex_all(text: str, spec: ExtractorSpec) -> list[Any]:
     except re.error:
         return []
     out: list[Any] = []
+    seen: set[str] = set()
     for m in cre.finditer(text):
         try:
             raw = m.group(spec.group)
@@ -66,6 +67,11 @@ def run_regex_all(text: str, spec: ExtractorSpec) -> list[Any]:
         val = _post(raw, spec)
         if val is None:
             continue
+        if isinstance(val, str):
+            key = val.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
         if spec.wrap_key:
             out.append({spec.wrap_key: val})
         else:

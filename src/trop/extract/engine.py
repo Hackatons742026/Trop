@@ -91,8 +91,8 @@ def _extract_list_item(
             window = _window_around_label(text, label, radius=180)
             if window:
                 val = first_hit(window, field.extractors)
-        if val is None and field_scope is not text and not block_id:
-            val = first_hit(text, field.extractors)
+        # Never fall back to the full document for list items: identity fields
+        # from another party leak (e.g. Zamawiający picking Odwołujący's KRS).
         _set_nested_item(item, field.key, val)
     return item
 
@@ -137,13 +137,25 @@ def _window_around_label(text: str, label: str, *, radius: int) -> str | None:
     if not text or not label:
         return None
     firm = _norm_firm_label(label)
-    idx = text.lower().find(firm.lower())
-    if idx < 0:
-        # Retry without a trailing dot on legal-form suffixes.
-        idx = text.lower().find(firm.rstrip(".").lower())
-    if idx < 0:
+    parts = [p for p in re.split(r"\s+", firm) if p]
+    if not parts:
         return None
-    return text[max(0, idx) : idx + len(firm) + radius]
+    # Consortium preambles wrap mid-name ("Torvex\nBudownictwo sp. z o.o., … KRS").
+    pat = r"\s+".join(re.escape(p) for p in parts)
+    try:
+        m = re.search(pat, text, flags=re.IGNORECASE)
+    except re.error:
+        m = None
+    if m is None and firm.endswith("."):
+        try:
+            parts[-1] = parts[-1].rstrip(".")
+            pat = r"\s+".join(re.escape(p) for p in parts if p)
+            m = re.search(pat, text, flags=re.IGNORECASE)
+        except re.error:
+            m = None
+    if m is None:
+        return None
+    return text[m.start() : min(len(text), m.end() + radius)]
 
 
 def _extract_list(text: str, blocks: dict[str, str], lst: ListSpec) -> list[dict[str, Any]]:
