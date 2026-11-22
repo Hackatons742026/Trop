@@ -34,6 +34,7 @@ COPY eval ./eval
 COPY tools ./tools
 COPY app ./app
 COPY docs ./docs
+COPY .streamlit ./.streamlit
 COPY RUN.md .env.example ./
 
 RUN mkdir -p /opt/solution/input /opt/solution/output /opt/solution/evidence \

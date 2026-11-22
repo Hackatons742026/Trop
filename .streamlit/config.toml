@@ -1,0 +1,4 @@
+# Hide Streamlit Cloud "Deploy" and other developer toolbar options.
+# Local HackNation use only needs the app chrome viewers care about.
+[client]
+toolbarMode = "viewer"
