@@ -83,6 +83,41 @@ def test_nominative_passthrough() -> None:
     assert nominative(None) is None
 
 
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("Janowi Kowalskiemu", "Jan Kowalski"),
+        ("Markowi Zawadzkiemu", "Marek Zawadzki"),
+        ("Pawłowi Długiemu", "Paweł Długi"),
+        ("Tomaszowi Dudkowi", "Tomasz Dudek"),
+        ("Piotrowi Nowakowi", "Piotr Nowak"),
+        ("Michałowi Szulcowi", "Michał Szulc"),
+        ("JANOWI KOWALSKIEMU", "JAN KOWALSKI"),
+        ("Kowalskiej", "Kowalska"),
+        # Nominative input stays as written.
+        ("Weronika Kaczmarek", "Weronika Kaczmarek"),
+        ("Jan Nowak", "Jan Nowak"),
+        ("Cezary Wierzbicki", "Cezary Wierzbicki"),
+    ],
+)
+def test_nominative_heuristics_without_morfeusz(monkeypatch, raw: str, expected: str) -> None:
+    monkeypatch.setattr("trop.normalize.fns._MORFEUSZ", None)
+    assert nominative(raw) == expected
+
+
+def test_morfeusz_prefers_proper_name_lemma(monkeypatch) -> None:
+    class FakeMorfeusz:
+        def analyse(self, token: str):
+            # First analysis is an adjective reading; old code returned it.
+            return [
+                (0, 1, ("Janowi", "janowy", "adj:sg:dat:m1:pos", [], [])),
+                (0, 1, ("Janowi", "Jan:Sm1", "subst:sg:dat:m1", ["imię"], [])),
+            ]
+
+    monkeypatch.setattr("trop.normalize.fns._MORFEUSZ", FakeMorfeusz())
+    assert nominative("Janowi") == "Jan"
+
+
 def test_apply_normalizers_chain() -> None:
     assert apply_normalizers("  13.10.2025  ", ["collapse_ws", "date_pl"]) == "2025-10-13"
     assert apply_normalizers("xxx", ["date_pl"]) is None

@@ -82,8 +82,7 @@ def _pelnomocnictwo_payload() -> dict:
 def test_pelnomocnicy_ignores_lowercase_prose() -> None:
     """A global (?i) used to turn 'udziela pełnomocnictwa' into an attorney."""
     names = [p["imie_nazwisko"] for p in _pelnomocnictwo_payload()["pelnomocnicy"]]
-    assert len(names) == 1
-    assert "Kowalsk" in names[0]
+    assert names == ["Jan Kowalski"]  # "adw. Janowi Kowalskiemu" in the text
 
 
 def test_pelnomocnicy_block_keeps_pesel() -> None:

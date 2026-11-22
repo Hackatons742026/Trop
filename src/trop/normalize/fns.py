@@ -188,35 +188,61 @@ def strip_titles(value: Any) -> str | None:
 
 
 def _morfeusz_nominative(token: str) -> str:
+    """Lemma of a name token, preferring proper-name, then noun analyses.
+
+    Never falls back to the first analysis of any part of speech (a verb or
+    adjective lemma is worse than the token as written).
+    """
     assert _MORFEUSZ is not None
-    analyses = _MORFEUSZ.analyse(token)
-    # analyses: list of (start, end, (forma, lemat, tag, ...))
-    lemmas: list[str] = []
-    for item in analyses:
+    # analyses: list of (start, end, (form, lemma, tag, name_types, qualifiers))
+    proper: list[str] = []
+    nouns: list[str] = []
+    for item in _MORFEUSZ.analyse(token):
         interp = item[2]
-        lemma = interp[1]
-        tag = interp[2] if len(interp) > 2 else ""
-        if "subst" in tag or "name" in tag or True:
-            # Prefer lemma base (before :)
-            base = lemma.split(":")[0]
-            lemmas.append(base)
-    if lemmas:
-        # Prefer lemma matching case of input's first letter style
-        return lemmas[0]
+        lemma = str(interp[1]).split(":")[0]
+        tag = str(interp[2]) if len(interp) > 2 else ""
+        name_types = interp[3] if len(interp) > 3 else ()
+        if name_types:
+            proper.append(lemma)
+        elif tag.startswith("subst"):
+            nouns.append(lemma)
+    for lemma in proper or nouns:
+        if token[:1].isupper():
+            return lemma[:1].upper() + lemma[1:]
+        return lemma
     return token
 
 
+_VOWELS = set("aąeęioóuyAĄEĘIOÓUY")
+
+
+def _swap_suffix(token: str, strip: int, new: str) -> str:
+    """Replace the last ``strip`` characters with ``new`` (matching ALL-CAPS)."""
+    return token[: len(token) - strip] + (new.upper() if token.isupper() else new)
+
+
 def _heuristic_nominative_token(token: str) -> str:
-    """Lightweight surname case fold when Morfeusz is unavailable."""
+    """Lightweight name case fold when Morfeusz is unavailable."""
     low = token.lower()
-    if low.endswith("skiej"):
-        return token[: -len("skiej")] + "ska"
-    if low.endswith("ckiej"):
-        return token[: -len("ckiej")] + "cka"
-    if low.endswith("skiego"):
-        return token[: -len("skiego")] + "ski"
-    if low.endswith("ckiego"):
-        return token[: -len("ckiego")] + "cki"
+    for suffix, new in (
+        ("skiej", "ska"),
+        ("ckiej", "cka"),
+        ("skiego", "ski"),
+        ("ckiego", "cki"),
+        ("kiemu", "ki"),  # dative: Kowalskiemu, Wysockiemu, Zawadzkiemu
+        ("giemu", "gi"),  # dative: Długiemu
+    ):
+        if low.endswith(suffix):
+            return _swap_suffix(token, len(suffix), new)
+    if low.endswith("owi") and len(token) >= 6:
+        # Dative masculine: Janowi → Jan, Nowakowi → Nowak. Restore the
+        # fleeting "e" after a consonant before k/ł/l: Markowi → Marek,
+        # Dudkowi → Dudek, Pawłowi → Paweł, Wróblowi → Wróbel.
+        stem = token[:-3]
+        if stem[-1].lower() in "kłl" and stem[-2] not in _VOWELS:
+            e = "E" if token.isupper() else "e"
+            stem = stem[:-1] + e + stem[-1]
+        return stem
     return token
 
 
