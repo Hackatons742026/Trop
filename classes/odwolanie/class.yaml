@@ -35,12 +35,18 @@ blocks:
 fields:
   - path: OdwolanieKIO.data
     extractors:
+      # "Bydgoszcz, dnia 2 marca 2026 roku" (header or mid-letter).
       - type: regex
-        block: header
-        pattern: "(?i)(?:dnia\\s+)?(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4})"
+        pattern: "(?i)(?:^|\\n)\\s*[A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\- ]{1,40}\\s*,\\s*dnia\\s+(\\d{1,2}\\s+[A-Za-ząćęłńóśźżĄĆĘŁŃÓŚŹŻ]+\\s+\\d{4}|\\d{1,2}[./-]\\d{1,2}[./-]\\d{4})"
         group: 1
         normalize: [date_pl]
       - type: regex
+        block: header
+        pattern: "(?i)dnia\\s+(\\d{1,2}\\s+[A-Za-ząćęłńóśźżĄĆĘŁŃÓŚŹŻ]+\\s+\\d{4}|\\d{1,2}[./-]\\d{1,2}[./-]\\d{4})"
+        group: 1
+        normalize: [date_pl]
+      - type: regex
+        block: header
         pattern: "(?i)(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4})\\s*r?\\.?"
         group: 1
         normalize: [date_pl]
@@ -50,35 +56,43 @@ fields:
       # Case-sensitive on purpose: [A-Z…] must mean an uppercase initial, so
       # only keywords are wrapped in a scoped (?i:…) flag.
       - type: regex
-        block: header
-        pattern: "^\\s*([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\- ]{2,40})\\s*,\\s*(?i:dnia)"
+        pattern: "(?:^|\\n)\\s*([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\- ]{1,40})\\s*,\\s*(?i:dnia)\\s+"
         group: 1
         normalize: [collapse_ws, strip_titles]
       - type: regex
         block: header
-        pattern: "([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\- ]{2,40})\\s+\\d{1,2}[./-]\\d{1,2}[./-]\\d{4}"
+        pattern: "^\\s*([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\- ]{2,40})\\s*,\\s*(?i:dnia)"
         group: 1
-        normalize: [collapse_ws]
+        normalize: [collapse_ws, strip_titles]
 
   - path: OdwolanieKIO.czynnosc_dzien
     extractors:
+      # Prefer "w dniu …" next to the challenged act (not "ustawy z dnia 11 września 2019").
       - type: regex
-        block: zarzuty
-        pattern: "(?i)(?:z\\s+dnia|dnia|w\\s+dniu)\\s+(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4})"
+        pattern: "(?i)w\\s+dniu\\s+(\\d{1,2}\\s+[A-Za-ząćęłńóśźżĄĆĘŁŃÓŚŹŻ]+\\s+\\d{4}|\\d{1,2}[./-]\\d{1,2}[./-]\\d{4})"
+        group: 1
+        normalize: [date_pl]
+      - type: regex
+        pattern: "(?i)(?:unieważni\\w*|odrzuci\\w*|wykluczy\\w*|udostępni\\w*)[^\\n]{0,40}?(\\d{1,2}\\s+[A-Za-ząćęłńóśźżĄĆĘŁŃÓŚŹŻ]+\\s+\\d{4}|\\d{1,2}[./-]\\d{1,2}[./-]\\d{4})"
         group: 1
         normalize: [date_pl]
       - type: regex
         block: zarzuty
-        pattern: "(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4})"
+        pattern: "(?i)(?:z\\s+dnia|dnia)\\s+(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4}|\\d{1,2}\\s+[A-Za-ząćęłńóśźżĄĆĘŁŃÓŚŹŻ]+\\s+\\d{4})"
         group: 1
         normalize: [date_pl]
 
   - path: OdwolanieKIO.czynnosc_powod_id
     extractors:
+      # Intro sentence before the zarzuty list carries the challenged act.
+      - type: regex
+        pattern: "(?i)((?:Zamawiający|w\\s+dniu).{0,160}?(?:unieważni\\w*|odrzuci\\w*|wykluczy\\w*|wybra\\w*|udostępni\\w*|zaniecha\\w*).{0,80})"
+        group: 1
+        normalize: [collapse_ws]
+        map_to_powod_id: true
       - type: regex
         block: zarzuty
-        # Match first zarzut reason keywords → mapped later via dict lookup helper
-        pattern: "(?i)(zaniechanie\\s+unieważnienia\\s+postępowania|decyzj[aei]\\s+o\\s+unieważnieniu\\s+postępowania|zaniechanie\\s+wykluczenia\\s+wykonawcy|zaniechanie\\s+odrzucenia\\s+oferty|odpowiedzi/?wyjaśnienia\\s+do\\s+SWZ|wyjaśnieni[ae]\\s+do\\s+SWZ|modyfikacj[aei]\\s+treści\\s+SWZ|publikacj[aei]\\s+specyfikacji\\s+warunków\\s+zamówienia|specyfikacj[aei]\\s+warunków\\s+zamówienia\\s*\\(?SWZ\\)?|opis\\s+przedmiotu\\s+zamówienia|projektowane\\s+postanowienia\\s+umowy|ogłoszeni[ae]\\s+wyboru\\s+oferty|decyzj[aei]\\s+o\\s+wykluczeniu\\s+wykonawcy|decyzj[aei]\\s+o\\s+odrzuceniu\\s+oferty|odrzuceni[aeu]\\s+oferty|wykluczeni[aeu]\\s+wykonawcy)"
+        pattern: "(?i)(zaniechanie\\s+unieważnienia\\s+postępowania|decyzj[aei]\\s+o\\s+unieważnieniu\\s+postępowania|unieważni\\w*\\s+postępowani|zaniechanie\\s+wykluczenia\\s+wykonawcy|zaniechanie\\s+odrzucenia\\s+oferty|odpowiedzi/?wyjaśnienia\\s+do\\s+SWZ|wyjaśnieni[ae]\\s+do\\s+SWZ|modyfikacj[aei]\\s+treści\\s+SWZ|publikacj[aei]\\s+specyfikacji\\s+warunków\\s+zamówienia|specyfikacj[aei]\\s+warunków\\s+zamówienia\\s*\\(?SWZ\\)?|projektowane\\s+postanowienia\\s+umowy|ogłoszeni[ae]\\s+wyboru\\s+oferty|decyzj[aei]\\s+o\\s+wykluczeniu\\s+wykonawcy|decyzj[aei]\\s+o\\s+odrzuceniu\\s+oferty|odrzuci\\w*\\s+ofert|odrzuceni[aeu]\\s+oferty|wykluczeni[aeu]\\s+wykonawcy|opis\\s+przedmiotu\\s+zamówienia)"
         group: 1
         normalize: [collapse_ws]
         map_to_powod_id: true
@@ -118,22 +132,34 @@ fields:
   - path: ZamowieniePubliczne.numer_postepowania
     extractors:
       - type: label
-        labels: ["Numer postępowania", "Nr postępowania", "Numer referencyjny", "Znak sprawy", "Nr ref."]
-        # Uppercase/digit first char keeps prose ("jest", "brak") out.
+        labels:
+          - "nr referencyjny sprawy"
+          - "numer referencyjny sprawy"
+          - "Numer postępowania"
+          - "Nr postępowania"
+          - "Numer referencyjny"
+          - "Znak sprawy"
+          - "Nr ref."
+        # Uppercase/digit first char keeps prose ("jest", "brak", "sprawy") out.
         value_pattern: "([A-Z0-9][A-Za-z0-9./_\\-]{3,40})"
         normalize: [collapse_ws]
       - type: regex
-        pattern: "(?i:numer\\s+(?:postępowania|referencyjny)|nr\\s+postępowania|znak\\s+sprawy)\\s*[:\\-]?\\s*([A-Z0-9][A-Za-z0-9./_\\-]{3,40})"
+        pattern: "(?i:(?:numer|nr)\\s+referencyjny(?:\\s+sprawy)?|numer\\s+postępowania|znak\\s+sprawy)\\s*[:\\-]?\\s*([A-Z0-9][A-Za-z0-9./_\\-]{3,40})"
         group: 1
         normalize: [collapse_ws]
 
   - path: ZamowieniePubliczne.tytul
     extractors:
+      - type: regex
+        # Standard filing: pn. „Title…” nr referencyjny…
+        pattern: "(?i)pn\\.\\s*[„\"«]\\s*([^”\"»]{10,300})\\s*[”\"»]"
+        group: 1
+        normalize: [collapse_ws]
       - type: label
-        labels: ["Przedmiot zamówienia", "Tytuł zamówienia", "Nazwa zamówienia", "dotyczące"]
+        labels: ["Przedmiot zamówienia", "Tytuł zamówienia", "Nazwa zamówienia"]
         value_pattern: "(.{10,300}?)"
         value_flags: "s"
-        stop_at: "(?i)(\\n\\s*zarzut|\\n\\s*I\\.|\\n\\s*1\\.)"
+        stop_at: "(?i)(\\n\\s*zarzut|\\n\\s*(?:nr|numer)\\s+referencyj|\\n\\s*I\\.|\\n\\s*1\\.)"
         normalize: [collapse_ws]
 
 lists:
@@ -168,7 +194,7 @@ lists:
       - key: przez-pelnomocnika
         extractors:
           - type: regex
-            pattern: "(?i)(przez\\s+pełnomocnika|reprezentowan[ya]\\s+przez\\s+pełnomocnika|pełnomocnik)"
+            pattern: "(?i)(reprezentowan[ya]\\s+przez|przez\\s+pełnomocnika|pełnomocnik)"
             group: 0
             const_on_match: 1
           - type: const
@@ -176,14 +202,22 @@ lists:
       - key: pelnomocnik.imie_nazwisko
         extractors:
           - type: regex
-            # Name tokens: Title-case or ALL-CAPS; never lowercase prose.
+            # "reprezentowana przez: r. pr. Aleksandra Marciniak, r. pr. …"
+            pattern: "(?i:reprezentowan[ya]\\s+przez)\\s*[:\\-]?\\s*((?:adw\\.?|r\\.?\\s*pr\\.?|radca\\s+prawny)\\s+)?([A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
+            group: 2
+            normalize: [collapse_ws, strip_titles, nominative]
+          - type: regex
             pattern: "(?i:pełnomocnik(?:a|iem)?)\\s*[:\\-]?\\s*((?i:adw\\.?|r\\.?\\s*pr\\.?|radca\\s+prawny)?\\s*[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
             group: 1
             normalize: [collapse_ws, strip_titles, nominative]
       - key: pelnomocnik.nazwa
         extractors:
           - type: regex
-            pattern: "(?i)((?:Kancelaria|Spółka|S\\.A\\.|sp\\.\\s*z\\s*o\\.o\\.)[^\\n]{3,120})"
+            pattern: "(?i)adres\\s+do\\s+korespondencji\\s*[:\\-]?\\s*(Kancelaria[\\s\\S]{3,160}?)(?=,\\s*ul\\.|\\nul\\.|\\n\\s*tel\\.)"
+            group: 1
+            normalize: [collapse_ws]
+          - type: regex
+            pattern: "(?i)(Kancelaria[^\\n]{3,120})"
             group: 1
             normalize: [collapse_ws]
       - key: pelnomocnik.mail

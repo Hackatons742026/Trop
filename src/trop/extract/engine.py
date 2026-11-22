@@ -147,16 +147,23 @@ def extract_payload(text: str, spec: ClassSpec) -> dict[str, Any]:
     payload: dict[str, Any] = _skeleton_from_schema(spec.schema) if spec.schema else {}
     flat_values: dict[str, Any] = {}
 
-    # Scalar fields
+    # Scalar fields — each extractor may declare its own block; missing → full text.
     for field in spec.fields:
-        scope = text
-        # Prefer block from first extractor that declares one
-        block_id = next((e.block for e in field.extractors if e.block), None)
-        if block_id:
-            scope = resolve_scope(text, blocks, block_id)
-        val = first_hit(scope, field.extractors, values=flat_values)
-        # A field scoped to a block falls back to the full text.
-        if val is None and scope is not text:
+        val = None
+        used_block = False
+        for extractor in field.extractors:
+            scope = (
+                resolve_scope(text, blocks, extractor.block)
+                if extractor.block
+                else text
+            )
+            if extractor.block:
+                used_block = True
+            val = first_hit(scope, (extractor,), values=flat_values)
+            if val is not None:
+                break
+        # Block-scoped misses fall back to the same extractors on the full text.
+        if val is None and used_block:
             val = first_hit(text, field.extractors, values=flat_values)
         flat_values[field.path] = val
         _set_path(payload, field.path, val)

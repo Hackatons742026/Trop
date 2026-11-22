@@ -12,6 +12,8 @@ _PHRASE_TO_ID: tuple[tuple[str, int], ...] = (
     (r"zaniechanie\s+unieważnienia\s+postępowania", 10),
     (r"decyzj\w*\s+o\s+unieważnieniu\s+postępowania", 9),
     (r"unieważnieni\w*\s+postępowania", 9),
+    # Narrative filings: "Zamawiający … unieważnił postępowanie" (incl. OCR typos).
+    (r"unieważni\w*\s+postępowanie", 9),
     (r"zaniechanie\s+wykluczenia\s+wykonawcy", 8),
     (r"zaniechanie\s+odrzucenia\s+oferty", 7),
     (r"odpowiedzi/?wyjaśnienia\s+do\s+SWZ", 6),
@@ -21,14 +23,17 @@ _PHRASE_TO_ID: tuple[tuple[str, int], ...] = (
     (r"publikacj\w*\s+specyfikacji\s+warunków\s+zamówienia", 4),
     (r"specyfikacj\w*\s+warunków\s+zamówienia", 4),
     # Do not map bare "SWZ" → id 4; require longer phrases above.
-    (r"opis\s+przedmiotu\s+zamówienia", 11),
-    (r"\bOPZ\b", 11),
     (r"projektowane\s+postanowienia\s+umowy", 12),
     (r"ogłoszeni\w*\s+wyboru\s+oferty", 2),
     (r"decyzj\w*\s+o\s+wykluczeniu\s+wykonawcy", 3),
+    (r"wykluczy\w*\s+wykonawc", 3),
     (r"wykluczeni\w*\s+wykonawcy", 3),
     (r"decyzj\w*\s+o\s+odrzuceniu\s+oferty", 1),
+    (r"odrzuci\w*\s+ofert", 1),
     (r"odrzuceni\w*\s+oferty", 1),
+    # OPZ last: appeals often mention it in later zarzuty without it being the act.
+    (r"opis\s+przedmiotu\s+zamówienia", 11),
+    (r"\bOPZ\b", 11),
 )
 
 
