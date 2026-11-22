@@ -41,7 +41,8 @@ lists:
     # Consortium PoAs list members as "1) Firm…; 2) Firm…" or sign as
     # "W imieniu Firm:". Single-grant PoAs fall back to one item from the block.
     mode: multi_from_regex
-    item_pattern: "(?i)W\\s+imieniu\\s+([^:\\n]{3,120})\\s*:"
+    # Own-line signature header only — not "Działając w imieniu X (dalej: …)".
+    item_pattern: "(?im)^\\s*W\\s+imieniu\\s+([^:\\n]{3,120})\\s*:\\s*$"
     fields:
       - key: data.krs
         extractors:
