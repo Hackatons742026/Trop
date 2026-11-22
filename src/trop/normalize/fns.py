@@ -106,11 +106,14 @@ def date_pl(value: Any) -> str | None:
 
 
 def amount_pl(value: Any) -> float | None:
-    """Parse Polish amounts (``1 234,56`` / ``1234.56``) → float."""
+    """Parse Polish amounts (``1 234,56`` / ``1234.56``) → absolute float.
+
+    Bank statements print debits as ``-17,00``; training gold stores magnitude.
+    """
     if value is None:
         return None
     if isinstance(value, (int, float)) and not isinstance(value, bool):
-        return float(value)
+        return abs(float(value))
     text = collapse_ws(value)
     if not text:
         return None
@@ -124,7 +127,7 @@ def amount_pl(value: Any) -> float | None:
     elif "," in text:
         text = text.replace(",", ".")
     try:
-        return float(text)
+        return abs(float(text))
     except ValueError:
         return None
 

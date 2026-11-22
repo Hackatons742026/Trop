@@ -72,23 +72,24 @@ fields:
           - "Wartość"
           - "WARTOŚĆ"
           - "Amount"
-        value_pattern: "((?:PLN|zł)?\\s*-?[\\d\\s]+[,.]\\d{2})"
+        # Spaces only inside the number — never newlines (avoids "2026\\n7 500,00").
+        value_pattern: "((?:PLN|zł)?\\s*-?[\\d ]+[,.]\\d{2})"
         normalize: [amount_pl]
       - type: regex
-        pattern: "(?i)(?:kwota\\s*(?:operacji|przelewu|transakcji)?|wartość)\\s*[:\\-–.…·]*\\s*((?:PLN|zł)?\\s*-?[\\d\\s]+[,.]\\d{2})"
+        pattern: "(?i)(?:kwota\\s*(?:operacji|przelewu|transakcji)?|wartość)\\s*[:\\-–.…·]*\\s*((?:PLN|zł)?\\s*-?[\\d ]+[,.]\\d{2})"
         group: 1
         normalize: [amount_pl]
       - type: regex
-        pattern: "(?i)w\\s+kwocie\\s+(-?[\\d\\s]+[,.]\\d{2})"
+        pattern: "(?i)w\\s+kwocie\\s+(-?[\\d ]+[,.]\\d{2})"
         group: 1
         normalize: [amount_pl]
       - type: regex
         # OCR column layouts: "Kwota\\n7 500,00 PLN" or "-17,00 PLN" under Kwota.
-        pattern: "(?i)kwota\\s*\\n\\s*(-?[\\d\\s]+[,.]\\d{2})\\s*(?:PLN|zł)?"
+        pattern: "(?i)kwota\\s*\\n\\s*(-?[\\d ]+[,.]\\d{2})\\s*(?:PLN|zł)?"
         group: 1
         normalize: [amount_pl]
       - type: regex
-        pattern: "(?i)(-?[\\d\\s]+[,.]\\d{2})\\s*PLN"
+        pattern: "(?i)(-?[\\d ]+[,.]\\d{2})\\s*PLN"
         group: 1
         normalize: [amount_pl]
 
@@ -173,7 +174,8 @@ fields:
   - path: przelew_bankowy.tytul
     extractors:
       - type: regex
-        pattern: "(?i)Tytuł\\s*:\\s*([^\\n]{8,300}(?:\\n[^\\n]{3,200})?)"
+        # OCR: Tytuł / Tytul / Tytut — stop before Typ/Kwota column headers.
+        pattern: "(?i)Tytu[łltu]\\s*:\\s*((?:(?!\\n\\s*(?:Typ\\s+transakcji|Kwota\\b|Status\\b)).)+)"
         group: 1
         normalize: [collapse_ws]
       - type: label

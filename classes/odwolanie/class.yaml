@@ -124,8 +124,9 @@ fields:
         pattern: "(?i)(?:BZP|Biuletyn(?:ie)?\\s+Zamówień\\s+Publicznych)[^\\d]{0,40}(\\d{4}\\s*/\\s*BZP\\s*\\d{5,12}(?:\\s*/\\s*\\d{1,3})?)"
         group: 1
         normalize: [bzp_number]
+      # Skip historical notices: "…BZP…), które zostało unieważnione".
       - type: regex
-        pattern: "(\\d{4}/BZP\\s*\\d{5,12}(?:/\\d{1,3})?)"
+        pattern: "(\\d{4}/BZP\\s*\\d{5,12}(?:/\\d{1,3})?)(?![^\\n]{0,60}unieważn)"
         group: 1
         normalize: [bzp_number]
 
