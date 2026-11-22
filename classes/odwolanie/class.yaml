@@ -243,6 +243,11 @@ lists:
             pattern: "(?i)odwo[łl]uj[aą]c\\w*\\s*[:\\-]?\\s*(?:lider\\s+konsorcjum\\s*[:\\-]?)?\\s*([^\\n]{5,200})"
             group: 1
             normalize: [collapse_ws, strip_titles, company_name]
+          - type: regex
+            # OCR sole-trader letterhead lost the "Odwołujący:" cue: "… Brzozowski Asterion Usługi Techniczne, ul."
+            pattern: "([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźżì\\-]+\\s+[A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\-]+\\s+[A-ZĄĆĘŁŃÓŚŹŻ][^,\\n]{5,80}?)(?=,\\s*ul\\.)"
+            group: 1
+            normalize: [collapse_ws, company_name]
       - key: przez-pelnomocnika
         extractors:
           - type: regex
@@ -285,6 +290,15 @@ lists:
             normalize: [collapse_ws]
       - key: pelnomocnik.mail
         extractors:
+          - type: regex
+            # Prefer attorney / kancelaria mailbox; skip mocodawca domains when possible.
+            pattern: "(?i)\\b((?:kancelaria|[a-z]\\.[a-z]+|[a-z]+)\\@[A-Z0-9.\\-]*kancelaria[A-Z0-9.\\-]*\\.[A-Z]{2,})\\b"
+            group: 1
+            normalize: [collapse_ws]
+          - type: regex
+            pattern: "(?i)e-?mail\\s*[:\\-]?\\s*([A-Z0-9._%+\\-]+@[A-Z0-9.\\-]+\\.[A-Z]{2,})"
+            group: 1
+            normalize: [collapse_ws]
           - type: regex
             pattern: "(?i)\\b([A-Z0-9._%+\\-]+@[A-Z0-9.\\-]+\\.[A-Z]{2,})\\b"
             group: 1
