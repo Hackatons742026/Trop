@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from jsonschema import Draft202012Validator
 
 from trop.normalize.fns import NORMALIZERS
 from trop.settings import _repo_root
@@ -101,6 +102,8 @@ class ClassSpec:
     lists: tuple[ListSpec, ...] = ()
     schema: dict[str, Any] = field(default_factory=dict)
     dicts: dict[str, Any] = field(default_factory=dict)
+    # Built once at load from a checked ``schema`` (None when there is none).
+    validator: Draft202012Validator | None = field(default=None, compare=False, repr=False)
 
 
 @dataclass(frozen=True)
@@ -196,9 +199,14 @@ def load_class_spec(class_dir: Path) -> ClassSpec:
     lists = tuple(_parse_list(lst) for lst in (data.get("lists") or []))
 
     schema: dict[str, Any] = {}
+    validator: Draft202012Validator | None = None
     schema_path = class_dir / "schema.json"
     if schema_path.is_file():
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        # A broken schema fails the class load (reported once) instead of
+        # turning every document of the class into {} at validation time.
+        Draft202012Validator.check_schema(schema)
+        validator = Draft202012Validator(schema)
 
     dicts: dict[str, Any] = {}
     dicts_dir = class_dir / "dicts"
@@ -217,6 +225,7 @@ def load_class_spec(class_dir: Path) -> ClassSpec:
         lists=lists,
         schema=schema,
         dicts=dicts,
+        validator=validator,
     )
 
 

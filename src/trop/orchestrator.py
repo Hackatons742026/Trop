@@ -109,7 +109,7 @@ def process_one_pdf(
             class_id=class_id,
         )
         # Schema-valid null-filled objects only; invalid → {}.
-        payload = validated_or_empty(payload, spec.schema)
+        payload = validated_or_empty(payload, spec.schema, validator=spec.validator)
         if not payload:
             write_empty_json(json_path)
             _maybe_write_evidence(evidence_dir, pdf, input_dir, document, class_id)

@@ -73,6 +73,31 @@ def test_broken_class_problems_are_all_reported(tmp_path: Path) -> None:
     assert len(problems) == 6
 
 
+def test_schema_checked_once_at_load(tmp_path: Path, monkeypatch) -> None:
+    from jsonschema import Draft202012Validator
+
+    from trop.io.schema_validate import validated_or_empty
+
+    spec = next(s for s in load_classes() if s.id == "przelew")
+    assert spec.validator is not None
+
+    def boom(*_a, **_k):
+        raise AssertionError("schema re-checked per document")
+
+    monkeypatch.setattr(Draft202012Validator, "check_schema", boom)
+    required = spec.schema["properties"]["przelew_bankowy"]["required"]
+    payload = {"przelew_bankowy": dict.fromkeys(required)}
+    assert validated_or_empty(payload, spec.schema, validator=spec.validator) == payload
+
+
+def test_broken_schema_fails_class_load(tmp_path: Path) -> None:
+    _write_class(tmp_path, {**BROKEN, "id": "bad_schema", "blocks": [], "fields": []})
+    (tmp_path / "bad_schema" / "schema.json").write_text('{"type": 5}', encoding="utf-8")
+    specs, problems = load_classes_report(tmp_path)
+    assert specs == ()
+    assert any("bad_schema/class.yaml: failed to load" in p for p in problems)
+
+
 def test_classes_list_exits_nonzero_on_problems(tmp_path: Path, monkeypatch) -> None:
     _write_class(tmp_path, BROKEN)
     monkeypatch.setattr("trop.registry.loader.default_classes_dir", lambda: tmp_path)
