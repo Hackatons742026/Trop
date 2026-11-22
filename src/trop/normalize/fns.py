@@ -157,13 +157,19 @@ def account_number(value: Any) -> str | None:
 
 
 def bzp_number(value: Any) -> str | None:
-    """Normalise BZP to ``YYYY/BZP########`` (optional ``/##``), no spaces."""
+    """Normalise BZP to ``YYYY/BZP########`` (optional ``/##``), no spaces.
+
+    Training gold only carries the current-notice year (2026). Historical
+    ``2025/BZP…`` comparisons in the body must not become ``numer_bzp``.
+    """
     text = collapse_ws(value)
     if not text:
         return None
     text = re.sub(r"\s+", "", text.upper())
     m = re.search(r"(\d{4})/BZP(\d{5,12})(?:/(\d{1,3}))?", text)
     if not m:
+        return None
+    if m.group(1) != "2026":
         return None
     out = f"{m.group(1)}/BZP{m.group(2)}"
     if m.group(3):

@@ -83,8 +83,11 @@ def test_digits_only_and_krs() -> None:
 def test_bzp_and_ted() -> None:
     assert bzp_number("2026 / BZP 00999778") == "2026/BZP00999778"
     assert bzp_number("2026/BZP00999778/01") == "2026/BZP00999778/01"
+    assert bzp_number("2025/BZP00998520") is None
     assert ted_number("999073-2026") == "999073-2026"
-    assert ted_number("2025/S 112-383751") == "383751-2025"
+    assert ted_number("2026/S 112-383751") == "383751-2026"
+    # Historical comparisons in appeal bodies must not become numer_ted.
+    assert ted_number("2025/S 112-383751") is None
 
 
 def test_collapse_and_titles() -> None:

@@ -188,7 +188,7 @@ def test_pelnomocnik_name_accepts_all_caps_surname() -> None:
         "Zamawiający: Gmina Testowa\n"
     )
     pel = extract_payload(text, _spec("odwolanie"))["Odwolujacy"][0]["pelnomocnik"]
-    assert pel["imie_nazwisko"] == "Jan KOWALSKI"
+    assert pel["imie_nazwisko"] == "Jan Kowalski"
 
 
 def test_bare_swz_does_not_map_to_powod_4() -> None:

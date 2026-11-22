@@ -54,6 +54,11 @@ fields:
         pattern: "(?i)data\\s*\\n\\s*(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4}|\\d{4}-\\d{2}-\\d{2})\\s*\\n\\s*(?:operacji|transakcji|wykonania|realizacji)"
         group: 1
         normalize: [date_pl]
+      - type: regex
+        # Column OCR: "Data transakcji\\n…\\n11.09.2026" or "Data operacji\\n…\\n2026-04-09"
+        pattern: "(?i)data\\s+(?:operacji|transakcji|wykonania|realizacji)[\\s\\S]{0,80}?(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4}|\\d{4}-\\d{2}-\\d{2})"
+        group: 1
+        normalize: [date_pl]
 
   - path: przelew_bankowy.kwota
     extractors:
@@ -67,19 +72,23 @@ fields:
           - "Wartość"
           - "WARTOŚĆ"
           - "Amount"
-        value_pattern: "((?:PLN|zł)?\\s*[\\d\\s]+[,.]\\d{2})"
+        value_pattern: "((?:PLN|zł)?\\s*-?[\\d\\s]+[,.]\\d{2})"
         normalize: [amount_pl]
       - type: regex
-        pattern: "(?i)(?:kwota\\s*(?:operacji|przelewu|transakcji)?|wartość)\\s*[:\\-–.…·]*\\s*((?:PLN|zł)?\\s*[\\d\\s]+[,.]\\d{2})"
+        pattern: "(?i)(?:kwota\\s*(?:operacji|przelewu|transakcji)?|wartość)\\s*[:\\-–.…·]*\\s*((?:PLN|zł)?\\s*-?[\\d\\s]+[,.]\\d{2})"
         group: 1
         normalize: [amount_pl]
       - type: regex
-        pattern: "(?i)w\\s+kwocie\\s+([\\d\\s]+[,.]\\d{2})"
+        pattern: "(?i)w\\s+kwocie\\s+(-?[\\d\\s]+[,.]\\d{2})"
         group: 1
         normalize: [amount_pl]
       - type: regex
-        # OCR: "Kwota\\n10 000,00 PLN\\nprzelewu"
-        pattern: "(?i)kwota\\s*\\n\\s*([\\d\\s]+[,.]\\d{2})\\s*(?:PLN|zł)?\\s*\\n\\s*przelewu"
+        # OCR column layouts: "Kwota\\n7 500,00 PLN" or "-17,00 PLN" under Kwota.
+        pattern: "(?i)kwota\\s*\\n\\s*(-?[\\d\\s]+[,.]\\d{2})\\s*(?:PLN|zł)?"
+        group: 1
+        normalize: [amount_pl]
+      - type: regex
+        pattern: "(?i)(-?[\\d\\s]+[,.]\\d{2})\\s*PLN"
         group: 1
         normalize: [amount_pl]
 
@@ -163,6 +172,10 @@ fields:
 
   - path: przelew_bankowy.tytul
     extractors:
+      - type: regex
+        pattern: "(?i)Tytuł\\s*:\\s*([^\\n]{8,300}(?:\\n[^\\n]{3,200})?)"
+        group: 1
+        normalize: [collapse_ws]
       - type: label
         labels:
           - "Tytuł przelewu"
@@ -171,12 +184,18 @@ fields:
           - "TYTUŁ PRZELEWU"
           - "Tytułem"
           - "Tytulem"
-          - "Opis"
-          - "OPIS"
           - "Szczegóły płatności"
         # Up to 3 lines; stop before the next bank field, never mid-word.
         value_pattern: "([^\\n]{5,300}(?:\\n[^\\n]{0,200}){0,2})"
         stop_at: "(?i)\\n\\s*(?:numer\\s+referencyjny|nr\\s*ref\\.?|status|kanał|tryb|waluta|kwota|data\\s|rachunek|typ\\s+operacji|\\*{3})"
+        normalize: [collapse_ws]
+      - type: label
+        labels:
+          - "Opis"
+          - "OPIS"
+        # Prefer narrative opis lines; reject bare next-column headers like "Kwota".
+        value_pattern: "((?![Kk]wota|[Dd]ata|[Nn]umer)[^\\n]{8,300}(?:\\n[^\\n]{0,200}){0,2})"
+        stop_at: "(?i)\\n\\s*(?:numer\\s+referencyjny|nr\\s*ref\\.?|status|kanał|tryb|waluta|kwota|data\\s|rachunek|typ\\s+operacji|dane\\s+nadawcy|\\*{3})"
         normalize: [collapse_ws]
       - type: label
         labels: ["Tytuł"]

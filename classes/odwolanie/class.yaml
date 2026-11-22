@@ -39,10 +39,14 @@ blocks:
 fields:
   - path: OdwolanieKIO.data
     extractors:
-      # "Bydgoszcz, dnia 2 marca 2026 roku" or "Kraków, 02.07.2026".
-      # Never "ustawy z dnia 11 września 2019".
+      # "Bydgoszcz, dnia 2 marca 2026 roku" or "Zielona Góra, 7 marca 2026 roku"
+      # or "Kraków, 02.07.2026". Never "ustawy z dnia 11 września 2019".
       - type: regex
         pattern: "(?i)(?:^|\\n)\\s*[A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\- ]{1,40}\\s*,\\s*dnia\\s+(\\d{1,2}\\s+[A-Za-ząćęłńóśźżĄĆĘŁŃÓŚŹŻ]+\\s+\\d{4}|\\d{1,2}[./-]\\d{1,2}[./-]\\d{4})"
+        group: 1
+        normalize: [date_pl]
+      - type: regex
+        pattern: "(?:^|\\n)\\s*[A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\- ]{1,40}\\s*,\\s*(\\d{1,2}\\s+(?i:stycznia|lutego|marca|kwietnia|maja|czerwca|lipca|sierpnia|września|października|listopada|grudnia)\\s+\\d{4})"
         group: 1
         normalize: [date_pl]
       - type: regex
@@ -56,6 +60,10 @@ fields:
       # only keywords are wrapped in a scoped (?i:…) flag.
       - type: regex
         pattern: "(?:^|\\n)\\s*([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\- ]{1,40})\\s*,\\s*(?i:dnia)\\s+"
+        group: 1
+        normalize: [collapse_ws, strip_titles]
+      - type: regex
+        pattern: "(?:^|\\n)\\s*([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\- ]{1,40})\\s*,\\s*\\d{1,2}\\s+(?i:stycznia|lutego|marca|kwietnia|maja|czerwca|lipca|sierpnia|września|października|listopada|grudnia)\\s+"
         group: 1
         normalize: [collapse_ws, strip_titles]
       - type: regex
