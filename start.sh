@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")"
+
+if [[ ! -x .venv/bin/python ]]; then
+  echo "Creating virtual environment..."
+  python3 -m venv .venv
+fi
+
+# shellcheck disable=SC1091
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+
+if [[ $# -eq 0 ]]; then
+  trop run --input input --output output
+else
+  trop "$@"
+fi
