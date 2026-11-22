@@ -74,15 +74,21 @@ fields:
 
   - path: OdwolanieKIO.czynnosc_powod_id
     extractors:
+      # Hold-out style: "polegających na: 1) wyborze … 2) zaniechaniu …"
+      - type: regex
+        pattern: "(?i)(?:polegających\\s+na|odwołanie\\s+wobec|zaskarżon\\w*\\s+czynnoś)[\\s\\S]{0,120}?\\d\\)\\s*([^\\n]{8,220})"
+        group: 1
+        normalize: [collapse_ws]
+        map_to_powod_id: true
       # Intro sentence before the zarzuty list carries the challenged act.
       - type: regex
-        pattern: "(?i)((?:Zamawiający|w\\s+dniu).{0,220}?(?:unieważni\\w*|odrzuc\\w*|wyklucz\\w*|wybra\\w*|udostępni\\w*|zaniecha\\w*|modyfikacj\\w*|zmodyfikowa\\w*|opublikowa\\w*|przekaza\\w*|poinformowa\\w*|wezwa\\w*|ogłosi\\w*).{0,120})"
+        pattern: "(?i)((?:Zamawiający|w\\s+dniu)[\\s\\S]{0,220}?(?:unieważni\\w*|odrzuc\\w*|wyklucz\\w*|wybra\\w*|udostępni\\w*|zaniecha\\w*|modyfikacj\\w*|zmodyfikowa\\w*|dokona\\w*\\s+modyfikacji|opublikowa\\w*|przekaza\\w*|poinformowa\\w*|wezwa\\w*|ogłosi\\w*)[\\s\\S]{5,160})"
         group: 1
         normalize: [collapse_ws]
         map_to_powod_id: true
       - type: regex
         block: zarzuty
-        pattern: "(?i)(zaniechanie\\s+unieważnienia\\s+postępowania|decyzj[aei]\\s+o\\s+unieważnieniu\\s+postępowania|unieważni\\w*\\s+postępowani|zaniechanie\\s+wykluczenia\\s+wykonawcy|zaniechanie\\s+odrzucenia\\s+oferty|odpowiedzi/?wyjaśnienia\\s+do\\s+SWZ|wyjaśnieni[ae]\\s+do\\s+SWZ|modyfikacj[aei]\\s+treści\\s+SWZ|publikacj[aei]\\s+specyfikacji\\s+warunków\\s+zamówienia|specyfikacj[aei]\\s+warunków\\s+zamówienia\\s*\\(?SWZ\\)?|projektowane\\s+postanowienia\\s+umowy|ogłoszeni[ae]\\s+wyboru\\s+oferty|decyzj[aei]\\s+o\\s+wykluczeniu\\s+wykonawcy|decyzj[aei]\\s+o\\s+odrzuceniu\\s+oferty|odrzuc\\w*\\s+ofert|wyklucz\\w*\\s+wykonawc|opis\\s+przedmiotu\\s+zamówienia)"
+        pattern: "(?i)(zaniechani[ue]\\s+unieważnienia|zaniechani[ue]\\s+wykluczenia|zaniechani[ue]\\s+odrzucenia|decyzj[aei]\\s+o\\s+unieważnieniu\\s+postępowania|unieważni\\w*\\s+postępowani|odpowiedzi/?wyjaśnienia\\s+do\\s+SWZ|wyjaśnieni[ae]\\s+do\\s+SWZ|modyfikacj[aei]\\s+treści\\s+(?:SWZ|Specyfikacji)|publikacj[aei]\\s+specyfikacji\\s+warunków\\s+zamówienia|specyfikacj[aei]\\s+warunków\\s+zamówienia\\s*\\(?SWZ\\)?|projektowane\\s+postanowienia\\s+umowy|ogłoszeni[ae]\\s+wyboru\\s+oferty|wyborze?\\s+(?:jako\\s+)?najkorzystniejszej|decyzj[aei]\\s+o\\s+wykluczeniu\\s+wykonawcy|decyzj[aei]\\s+o\\s+odrzuceniu\\s+oferty|odrzuc\\w*\\s+ofert|wyklucz\\w*\\s+(?:wykonawc|Odwołującego|z\\s+postępowania)|opis\\s+przedmiotu\\s+zamówienia)"
         group: 1
         normalize: [collapse_ws]
         map_to_powod_id: true
