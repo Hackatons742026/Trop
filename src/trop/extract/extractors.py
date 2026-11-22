@@ -78,8 +78,10 @@ def run_label(text: str, spec: ExtractorSpec) -> Any:
         return None
     value_pat = spec.value_pattern or r"([^\n]+)"
     for label in spec.labels:
-        # Label then optional :/- then capture
-        pat = rf"(?i){re.escape(label)}\s*[:\-]?\s*{value_pat}"
+        # Label (case-insensitive) then optional :/- then capture. The flag is
+        # scoped to the label so value patterns keep their case semantics
+        # (``[A-Z]`` means uppercase); use ``value_flags: i`` to relax them.
+        pat = rf"(?i:{re.escape(label)})\s*[:\-]?\s*{value_pat}"
         try:
             cre = _compile(pat, spec.value_flags)
         except re.error:

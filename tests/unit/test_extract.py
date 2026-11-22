@@ -72,6 +72,40 @@ def test_micro_f1_against_odwolanie_gold() -> None:
     assert counts.f1 >= 0.7
 
 
+def _pelnomocnictwo_payload() -> dict:
+    text = (TEXT / "pelnomocnictwo_smoke.txt").read_text(encoding="utf-8")
+    payload = extract_payload(text, _spec("pelnomocnictwo"))
+    assert validate_payload(payload, _spec("pelnomocnictwo").schema)
+    return payload
+
+
+def test_pelnomocnicy_ignores_lowercase_prose() -> None:
+    """A global (?i) used to turn 'udziela pełnomocnictwa' into an attorney."""
+    names = [p["imie_nazwisko"] for p in _pelnomocnictwo_payload()["pelnomocnicy"]]
+    assert len(names) == 1
+    assert "Kowalsk" in names[0]
+
+
+def test_pelnomocnik_name_requires_capitalised_tokens() -> None:
+    text = (
+        "Odwołujący: Firma Testowa S.A.\n"
+        "Działa przez pełnomocnika ustanowionego przez zarząd.\n"
+        "Zamawiający: Gmina Testowa\n"
+    )
+    pel = extract_payload(text, _spec("odwolanie"))["Odwolujacy"][0]["pelnomocnik"]
+    assert pel["imie_nazwisko"] is None
+
+
+def test_pelnomocnik_name_accepts_all_caps_surname() -> None:
+    text = (
+        "Odwołujący: Firma Testowa S.A.\n"
+        "pełnomocnik: adw. Jan KOWALSKI\n"
+        "Zamawiający: Gmina Testowa\n"
+    )
+    pel = extract_payload(text, _spec("odwolanie"))["Odwolujacy"][0]["pelnomocnik"]
+    assert pel["imie_nazwisko"] == "Jan KOWALSKI"
+
+
 def test_bare_swz_does_not_map_to_powod_4() -> None:
     assert map_text_to_powod_id("dotyczy SWZ") is None
     assert map_text_to_powod_id("specyfikacji warunków zamówienia") == 4

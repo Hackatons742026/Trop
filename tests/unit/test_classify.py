@@ -33,6 +33,11 @@ def test_classify_przelew_by_content() -> None:
     assert result.class_id == "przelew"
 
 
+def test_classify_pelnomocnictwo_by_content() -> None:
+    text = (FIXTURES / "pelnomocnictwo_smoke.txt").read_text(encoding="utf-8")
+    assert classify_text(text).class_id == "pelnomocnictwo"
+
+
 def test_classify_ooc_wyrok_returns_other() -> None:
     text = (FIXTURES / "wyrok_ooc.txt").read_text(encoding="utf-8")
     negatives = load_negatives()

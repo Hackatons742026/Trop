@@ -47,14 +47,16 @@ lists:
             pattern: "(?i)(?:mocodawca|spółka|firma)\\s*[:\\-]?\\s*([^\\n]{3,200})"
             group: 1
             normalize: [collapse_ws, strip_titles]
+          # Case-sensitive on purpose: [A-Z…] must mean an uppercase initial, so
+          # only keywords / legal-form suffixes use a scoped (?i:…) flag.
           - type: regex
-            pattern: "(?i)((?:[A-ZĄĆĘŁŃÓŚŹŻ][^\\n]{2,80}?(?:S\\.A\\.|sp\\.\\s*z\\s*o\\.o\\.|sp\\.\\s*k\\.|sp\\.j\\.)))"
+            pattern: "([A-ZĄĆĘŁŃÓŚŹŻ][^\\n]{2,80}?(?i:S\\.A\\.|sp\\.\\s*z\\s*o\\.o\\.|sp\\.\\s*k\\.|sp\\.\\s*j\\.))"
             group: 1
             normalize: [collapse_ws]
       - key: data.imie_nazwisko
         extractors:
           - type: regex
-            pattern: "(?i)osoba\\s+fizyczna[^\\n]{0,40}?([A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+\\s+[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż\\-]+)"
+            pattern: "(?i:osoba\\s+fizyczna)[^\\n]{0,40}?([A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
             group: 1
             normalize: [collapse_ws, nominative]
       - key: data.typ
@@ -68,7 +70,7 @@ lists:
       - key: podpisujacy
         extractors:
           - type: regex_all
-            pattern: "(?i)(?:podpisując[ya]|w\\s+imieniu[^:]{0,40}:|reprezentowan[ya]\\s+przez)\\s*([A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+\\s+[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż\\-]+)"
+            pattern: "(?i:podpisując[ya]|w\\s+imieniu[^:]{0,40}:|reprezentowan[ya]\\s+przez)\\s*([A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
             group: 1
             normalize: [collapse_ws, strip_titles, nominative]
             wrap_key: imie_nazwisko
@@ -76,12 +78,14 @@ lists:
   - path: pelnomocnicy
     block: pelnomocnicy
     mode: multi_from_regex
-    item_pattern: "(?i)((?:adw\\.?|r\\.?\\s*pr\\.?|radca\\s+prawny|aplikant)?\\s*[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+\\s+[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż\\-]+)"
+    # Name tokens: Title-case or ALL-CAPS; a global (?i) would turn any two
+    # words ("udziela pełnomocnictwa") into an attorney.
+    item_pattern: "((?i:adw\\.?|r\\.?\\s*pr\\.?|radca\\s+prawny|aplikant)?\\s*[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
     fields:
       - key: imie_nazwisko
         extractors:
           - type: regex
-            pattern: "(?i)((?:adw\\.?|r\\.?\\s*pr\\.?|radca\\s+prawny|aplikant)?\\s*[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+\\s+[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż\\-]+)"
+            pattern: "((?i:adw\\.?|r\\.?\\s*pr\\.?|radca\\s+prawny|aplikant)?\\s*[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
             group: 1
             normalize: [collapse_ws, strip_titles, nominative]
       - key: pesel

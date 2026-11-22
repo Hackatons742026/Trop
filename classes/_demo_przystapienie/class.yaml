@@ -22,7 +22,7 @@ fields:
   - path: demo.sygnatura
     extractors:
       - type: regex
-        pattern: "(?i)sygnatura\\s*[:\\-]?\\s*([A-Z0-9/\\-]+)"
+        pattern: "(?i:sygnatura)\\s*[:\\-]?\\s*([A-Z0-9/\\-]+)"
         group: 1
         normalize: [collapse_ws]
       - type: label
