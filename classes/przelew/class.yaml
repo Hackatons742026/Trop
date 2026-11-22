@@ -13,10 +13,7 @@ detect:
     - { pattern: "(?i)z\\s+rachunku|na\\s+rachunek", weight: 2.0 }
     - { pattern: "(?i)opłat[ay]\\s+(?:odwoławcz|skarbow)", weight: 1.5 }
 
-blocks:
-  - id: body
-    start: null
-    end: null
+blocks: []
 
 fields:
   - path: przelew_bankowy.data_operacji

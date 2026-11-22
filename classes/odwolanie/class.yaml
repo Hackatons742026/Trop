@@ -23,9 +23,6 @@ blocks:
   - id: zamawiajacy
     start: "(?i)zamawiając"
     end: "(?i)(dotycząc[ae]\\s+postępowania|zamówieni[ae]\\s+publiczn|przedmiot|zarzut)"
-  - id: zamowienie
-    start: "(?i)(dotycząc[ae]\\s+postępowania|zamówieni[ae]\\s+publiczn|numer\\s+ogłoszenia|BZP|TED)"
-    end: "(?i)zarzut"
   - id: zarzuty
     start: "(?i)zarzut"
     end: null

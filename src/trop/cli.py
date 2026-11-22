@@ -268,9 +268,6 @@ def new_class(
             f"(got {class_id!r})"
         )
         raise typer.Exit(code=2)
-    if class_id.startswith("_"):
-        console.print("[red]Class id must not start with '_'[/red] (reserved for templates).")
-        raise typer.Exit(code=2)
 
     classes_root = default_classes_dir()
     template = classes_root / "_template"

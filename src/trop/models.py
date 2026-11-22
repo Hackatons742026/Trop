@@ -77,11 +77,3 @@ class Document(BaseModel):
     fields: list[FieldValue] = Field(default_factory=list)
     error: str | None = None
 
-
-class Case(BaseModel):
-    """A processing case: one input tree run producing mirrored JSON outputs."""
-
-    input_dir: Path
-    output_dir: Path
-    evidence_dir: Path | None = None
-    documents: list[Document] = Field(default_factory=list)

@@ -154,14 +154,10 @@ def extract_payload(text: str, spec: ClassSpec) -> dict[str, Any]:
         block_id = next((e.block for e in field.extractors if e.block), None)
         if block_id:
             scope = resolve_scope(text, blocks, block_id)
-        # derived uses flat_values
-        if field.extractors and field.extractors[0].type == "derived":
-            val = first_hit(scope, field.extractors, values=flat_values)
-        else:
-            # For fields with a dedicated block on extractors, try block then full text
-            val = first_hit(scope, field.extractors, values=flat_values)
-            if val is None and scope is not text:
-                val = first_hit(text, field.extractors, values=flat_values)
+        val = first_hit(scope, field.extractors, values=flat_values)
+        # A field scoped to a block falls back to the full text.
+        if val is None and scope is not text:
+            val = first_hit(text, field.extractors, values=flat_values)
         flat_values[field.path] = val
         _set_path(payload, field.path, val)
 
@@ -219,6 +215,3 @@ def _flatten(obj: Any, prefix: str = "") -> list[tuple[str, Any]]:
         out.append((prefix, obj))
     return out
 
-
-def empty_payload() -> dict[str, Any]:
-    return copy.deepcopy({})

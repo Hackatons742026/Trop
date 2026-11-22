@@ -20,7 +20,7 @@ from trop.io.evidence import write_evidence_sidecar
 from trop.io.schema_validate import validated_or_empty
 from trop.io.writer import write_empty_json, write_json
 from trop.llm import maybe_assist
-from trop.models import Case, Document
+from trop.models import Document
 from trop.registry.loader import ClassSpec, load_classes, load_negatives
 from trop.settings import Settings, get_settings
 
@@ -160,7 +160,6 @@ def process_case(
     negatives = load_negatives()
     pdfs = discover_pdfs(in_dir)
     result = ProcessResult(input_dir=in_dir, output_dir=out_dir, total=len(pdfs))
-    case = Case(input_dir=in_dir, output_dir=out_dir, evidence_dir=ev_dir)
 
     if not pdfs:
         logger.info("No PDFs found under %s", in_dir)
@@ -190,14 +189,14 @@ def process_case(
 
     if n_workers <= 1:
         for pdf in pdfs:
-            pdf, json_path, err, document, class_id = _one(pdf)
-            _record(result, case, pdf, json_path, err, document, class_id)
+            pdf, json_path, err, _document, class_id = _one(pdf)
+            _record(result, pdf, json_path, err, class_id)
     else:
         with ThreadPoolExecutor(max_workers=n_workers) as pool:
             futures = {pool.submit(_one, pdf): pdf for pdf in pdfs}
             for fut in as_completed(futures):
-                pdf, json_path, err, document, class_id = fut.result()
-                _record(result, case, pdf, json_path, err, document, class_id)
+                pdf, json_path, err, _document, class_id = fut.result()
+                _record(result, pdf, json_path, err, class_id)
 
     logger.info(
         "Done: %s ok, %s failed, %s total → %s | classes=%s",
@@ -212,28 +211,17 @@ def process_case(
 
 def _record(
     result: ProcessResult,
-    case: Case,
     pdf: Path,
     json_path: Path | None,
     err: str | None,
-    document: Document | None,
     class_id: str,
 ) -> None:
+    # Documents (full page text) are not retained: memory stays flat per run.
     result.classified[class_id] = result.classified.get(class_id, 0) + 1
     if json_path is not None:
         result.outputs.append(json_path)
     if err:
         result.failed += 1
         result.errors.append((pdf, err))
-        if document is None:
-            document = Document(
-                path=pdf,
-                relative_path=Path(pdf.name),
-                error=err,
-            )
-        else:
-            document.error = err
     else:
         result.succeeded += 1
-    if document is not None:
-        case.documents.append(document)
