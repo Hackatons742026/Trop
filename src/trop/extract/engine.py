@@ -92,11 +92,15 @@ def _extract_list(text: str, blocks: dict[str, str], lst: ListSpec) -> list[dict
     # Default: single item from block/scope
     item = {}
     for field in lst.fields:
+        # An extractor-level ``block:`` scopes this field instead of the list
+        # block (e.g. signatures live after the mocodawca section).
+        block_id = next((e.block for e in field.extractors if e.block), None)
+        field_scope = resolve_scope(text, blocks, block_id) if block_id else scope
         # Special: podpisujacy via regex_all → list
         if field.key == "podpisujacy" or any(e.type == "regex_all" for e in field.extractors):
             for spec in field.extractors:
                 if spec.type == "regex_all":
-                    val = run_extractor(scope, spec)
+                    val = run_extractor(field_scope, spec)
                     if val:
                         _set_nested_item(item, field.key, val)
                         break
@@ -104,7 +108,7 @@ def _extract_list(text: str, blocks: dict[str, str], lst: ListSpec) -> list[dict
                 if field.key not in item:
                     _set_nested_item(item, field.key, [] if field.key == "podpisujacy" else None)
             continue
-        val = first_hit(scope, field.extractors)
+        val = first_hit(field_scope, field.extractors)
         _set_nested_item(item, field.key, val)
 
     # typ / osoba_prawna cleanup for mocodawca

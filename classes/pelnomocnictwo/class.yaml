@@ -70,10 +70,15 @@ lists:
             const_on_match: "osoba_prawna"
           - type: const
             value: "osoba_fizyczna"
+      # Signatures sit after the mocodawca section, so this field uses its own
+      # block. Name follows a dotted signature line (optionally then a
+      # "Za <firma>" line) or a "w imieniu …:" cue;
+      # titled names (attorneys accepting the mandate) are not signatories.
       - key: podpisujacy
         extractors:
           - type: regex_all
-            pattern: "(?i:podpisując[ya]|w\\s+imieniu[^:]{0,40}:|reprezentowan[ya]\\s+przez)\\s*([A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
+            block: podpisujacy
+            pattern: "(?:\\.{5,}[ \\t]*\\n(?:[ \\t]*(?i:za)[ \\t][^\\n]*\\n)?[ \\t]*|(?i:podpisując[ya]|w\\s+imieniu[^:\\n]{0,40}:|reprezentowan[ya]\\s+przez)\\s*)([A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)[ \\t]+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
             group: 1
             normalize: [collapse_ws, strip_titles, nominative]
             wrap_key: imie_nazwisko

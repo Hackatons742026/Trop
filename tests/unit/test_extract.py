@@ -108,6 +108,35 @@ def test_pelnomocnicy_header_layout_skips_untitled_names() -> None:
     assert [p["imie_nazwisko"] for p in pel] == ["Bartosz Szymanski", "Cezary Wierzbicki"]
 
 
+def test_podpisujacy_uses_its_own_block() -> None:
+    """List fields used to ignore extractor ``block:``; signatures were lost."""
+    mocodawca = _pelnomocnictwo_payload()["mocodawca"]
+    assert mocodawca[0]["podpisujacy"] == [{"imie_nazwisko": "Anna Nowak"}]
+
+
+def test_podpisujacy_after_dotted_signature_lines() -> None:
+    text = (
+        "PEŁNOMOCNICTWO\n"
+        "Mocodawcą jest Zarendel Automatyka sp. j., KRS 9999063951.\n"
+        "Mocodawca ustanawiam pełnomocnikiem r. pr. Cezary Walczak.\n"
+        "§ 3. Postępowanie\n"
+        "Mocodawca:\n"
+        ".............................\n"
+        "Za Zarendel Automatyka sp. j.\n"
+        "Halina Mazurkiewicz\n"
+        "Członek Zarządu\n"
+        ".............................\n"
+        "Sławomir Szulc\n"
+        "Prokurent\n"
+        "Pełnomocnictwo przyjmuję:\n"
+        ".............................\n"
+        "r. pr. Cezary Walczak\n"
+    )
+    mocodawca = extract_payload(text, _spec("pelnomocnictwo"))["mocodawca"]
+    names = [p["imie_nazwisko"] for p in mocodawca[0]["podpisujacy"]]
+    assert names == ["Halina Mazurkiewicz", "Sławomir Szulc"]
+
+
 def test_pelnomocnik_name_requires_capitalised_tokens() -> None:
     text = (
         "Odwołujący: Firma Testowa S.A.\n"
