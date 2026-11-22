@@ -65,7 +65,7 @@ Judges run from the Azure VM path:
   ├── evidence/   # optional sidecars (not scored)
   ├── config/     # app.yaml, negatives.yaml, llm.yaml
   ├── classes/    # class.yaml + schema.json per type
-  ├── app/        # Streamlit GUI (frontend owns app/gui.py)
+  ├── app/        # Streamlit GUI (app/gui.py)
   ├── RUN.md
   ├── Dockerfile
   └── docker-compose.yml
@@ -80,14 +80,16 @@ docker compose run --rm trop
 
 ## GUI
 
-Streamlit side-by-side preview is owned by the frontend (`app/gui.py`).
-Compose service `gui` listens on **port 8080** (`restart: unless-stopped`).
+`app/gui.py` is a Streamlit side-by-side preview: upload PDFs, run the same
+pipeline as `trop run`, inspect and download the JSON. Compose service `gui`
+listens on **port 8080** (`restart: unless-stopped`, non-root, no
+authentication — restrict the port at the firewall).
 Do not put competition assets in `input/` or `output/`.
 
 ```bash
 docker compose up -d gui
-# or locally, once app/gui.py exists:
-# streamlit run app/gui.py --server.port 8080
+# or locally:
+streamlit run app/gui.py --server.port 8080
 ```
 
 ## Behaviour
@@ -99,7 +101,8 @@ docker compose up -d gui
 - OCR only when page text has &lt;40 printable chars or printable ratio &lt;0.9
 - Default `workers: 2` (2 vCPU), `dpi: 200`, page caps in `config/app.yaml`
 - Classes discovered from `classes/*/class.yaml` (folders starting with `_` ignored)
-- Evidence sidecars (if enabled) go under `evidence/<rel>/<stem>.evidence.json` —
+- Evidence sidecars (off by default; the Docker batch command enables them) go under
+  `evidence/<rel>/<stem>.evidence.json` —
   scorers that glob `output/**/*.json` never see them
 - `data/` is local / **gitignored** (scratch gold imports)
 

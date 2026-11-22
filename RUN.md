@@ -12,7 +12,7 @@ Judge / demo VM path convention:
   ├── input/               # drop PDFs here (empty in git; no assets checked in)
   ├── output/              # mirrored same-stem JSON (empty in git)
   ├── evidence/            # optional debug dumps
-  ├── app/                 # Streamlit GUI (frontend owns app/gui.py)
+  ├── app/                 # Streamlit GUI (app/gui.py)
   ├── src/trop/            # package (editable install)
   ├── Dockerfile
   ├── docker-compose.yml
@@ -62,7 +62,7 @@ bash tools/bake_ocr_models.sh
 | Service | Role | Ports |
 |---------|------|-------|
 | `trop`  | One-shot batch PDF → JSON | — |
-| `gui`   | Streamlit stub on 8080 (`restart: unless-stopped`); FE owns `app/gui.py` | `8080` |
+| `gui`   | Streamlit GUI on 8080 (`restart: unless-stopped`, non-root, no auth) | `8080` |
 
 Batch only:
 
@@ -70,7 +70,7 @@ Batch only:
 docker compose run --rm trop
 ```
 
-GUI stub (sleeps until `app/gui.py` exists; then switch command to Streamlit):
+GUI (restrict port 8080 at the VM firewall / NSG — it has no authentication):
 
 ```bash
 docker compose up -d gui
