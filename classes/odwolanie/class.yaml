@@ -35,19 +35,9 @@ blocks:
 fields:
   - path: OdwolanieKIO.data
     extractors:
-      # "Bydgoszcz, dnia 2 marca 2026 roku" (header or mid-letter).
+      # Only the letter place-date line. Never "ustawy z dnia 11 września 2019".
       - type: regex
         pattern: "(?i)(?:^|\\n)\\s*[A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\- ]{1,40}\\s*,\\s*dnia\\s+(\\d{1,2}\\s+[A-Za-ząćęłńóśźżĄĆĘŁŃÓŚŹŻ]+\\s+\\d{4}|\\d{1,2}[./-]\\d{1,2}[./-]\\d{4})"
-        group: 1
-        normalize: [date_pl]
-      - type: regex
-        block: header
-        pattern: "(?i)dnia\\s+(\\d{1,2}\\s+[A-Za-ząćęłńóśźżĄĆĘŁŃÓŚŹŻ]+\\s+\\d{4}|\\d{1,2}[./-]\\d{1,2}[./-]\\d{4})"
-        group: 1
-        normalize: [date_pl]
-      - type: regex
-        block: header
-        pattern: "(?i)(\\d{1,2}[./-]\\d{1,2}[./-]\\d{4})\\s*r?\\.?"
         group: 1
         normalize: [date_pl]
 

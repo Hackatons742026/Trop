@@ -59,31 +59,41 @@ lists:
         extractors:
           - type: regex
             # "Mocodawcą jest Belmoria Rozwiązania S.A., ul. …" / "(dalej: …)"
-            pattern: "(?i)mocodawc\\w*\\s+jest\\s+([^,(\\n]{3,120})"
+            pattern: "(?i)mocodawc\\w*\\s+jest\\s+([^,(\\n]*[A-Za-zĄĆĘŁŃÓŚŹŻ][^,(\\n]{2,120})"
             group: 1
             normalize: [collapse_ws, strip_titles]
           - type: regex
-            pattern: "(?i)działając\\s+w\\s+imieniu\\s+([^,(\\n]{3,120})"
+            pattern: "(?i)działając\\s+w\\s+imieniu\\s+([^,(\\n]*[A-Za-zĄĆĘŁŃÓŚŹŻ][^,(\\n]{2,120})"
             group: 1
             normalize: [collapse_ws, strip_titles]
           - type: regex
-            pattern: "(?i)w\\s+imieniu\\s+([^,:(\\n]{3,120})\\s*:"
+            pattern: "(?i)w\\s+imieniu\\s+([^,:(\\n]*[A-Za-zĄĆĘŁŃÓŚŹŻ][^,:(\\n]{2,120})\\s*:"
             group: 1
             normalize: [collapse_ws, strip_titles]
           - type: regex
-            pattern: "(?i)(?:mocodawca|spółka|firma)\\s*[:\\-]?\\s*([^,(\\n]{3,120})"
+            # Sole trader: "pod firmą DUDEK-TECH Jarosław Dudek, ul. …"
+            pattern: "(?i)pod\\s+firmą\\s+([^,(\\n]{3,120})"
             group: 1
             normalize: [collapse_ws, strip_titles]
-          # Case-sensitive on purpose: [A-Z…] must mean an uppercase initial, so
-          # only keywords / legal-form suffixes use a scoped (?i:…) flag.
+          # Case-sensitive: uppercase firm name with a legal-form suffix.
           - type: regex
-            pattern: "([A-ZĄĆĘŁŃÓŚŹŻ][^\\n]{2,80}?(?i:S\\.A\\.|sp\\.\\s*z\\s*o\\.o\\.|sp\\.\\s*k\\.|sp\\.\\s*j\\.))"
+            pattern: "([A-ZĄĆĘŁŃÓŚŹŻ][^\\n]{2,100}?(?i:S\\.A\\.|sp\\.\\s*z\\s*o\\.o\\.(?:\\s*sp\\.\\s*k\\.)?|sp\\.\\s*k\\.|sp\\.\\s*j\\.|spółka\\s+akcyjna))"
             group: 1
             normalize: [collapse_ws]
+          - type: regex
+            # "Mocodawca:" heading must not capture the dotted signature line.
+            pattern: "(?i)(?:mocodawca|spółka|firma)\\s*[:\\-]?\\s*([A-Za-zĄĆĘŁŃÓŚŹŻ][^,(\\n]{2,120})"
+            group: 1
+            normalize: [collapse_ws, strip_titles]
       - key: data.imie_nazwisko
         extractors:
           - type: regex
             pattern: "(?i:osoba\\s+fizyczna)[^\\n]{0,40}?([A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
+            group: 1
+            normalize: [collapse_ws, nominative]
+          - type: regex
+            # "Ja, niżej podpisany Jarosław Dudek, prowadzący działalność…"
+            pattern: "(?i:ja,?\\s+niżej\\s+podpisany)\\s+([A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
             group: 1
             normalize: [collapse_ws, nominative]
       # Natural-person cues first (a sole trader also has a NIP / firm name),
