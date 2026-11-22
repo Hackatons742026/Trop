@@ -15,9 +15,12 @@ blocks:
   - id: mocodawca
     start: "(?i)(mocodawc|udzielając[ya]|ja\\s+niżej|spółka)"
     end: "(?i)(pełnomocnik|upoważni|udziela)"
+  # Attorneys are listed between the grant ("Pełnomocnik/Pełnomocnicy",
+  # "upoważniam", "udzielam pełnomocnictwa", "ustanawiam") and the scope /
+  # next section. Never end at "PESEL": it belongs to the attorney entry.
   - id: pelnomocnicy
-    start: "(?i)(pełnomocnik|upoważniam|udziela\\s+pełnomocnictwa)"
-    end: '(?i)(podpis|data|PESEL)'
+    start: "(?i)(pełnomocni(?:k|cy)|upoważniam|udziel\\w*\\s+pełnomocnictwa|ustanawiam)"
+    end: "(?i)(do\\s+reprezentowania|§\\s*3|pełnomocnictwo\\s+obejmuje|zakres\\s+umocowania|podpis|\\bdata\\b)"
   - id: podpisujacy
     start: "(?i)(w\\s+imieniu|reprezentowan|podpis)"
     end: null
@@ -79,13 +82,15 @@ lists:
     block: pelnomocnicy
     mode: multi_from_regex
     # Name tokens: Title-case or ALL-CAPS; a global (?i) would turn any two
-    # words ("udziela pełnomocnictwa") into an attorney.
-    item_pattern: "((?i:adw\\.?|r\\.?\\s*pr\\.?|radca\\s+prawny|aplikant)?\\s*[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
+    # words ("udziela pełnomocnictwa") into an attorney. The professional
+    # title is required: every attorney in the training gold carries one, and
+    # without it company names / court names / signatories became attorneys.
+    item_pattern: "((?i:\\b(?:adw\\.?|adwokat|r\\.?\\s*pr\\.?|radca\\s+prawny|aplikant\\w*(?:\\s+(?:adwokack|radcowsk)\\w*)?))\\s*[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
     fields:
       - key: imie_nazwisko
         extractors:
           - type: regex
-            pattern: "((?i:adw\\.?|r\\.?\\s*pr\\.?|radca\\s+prawny|aplikant)?\\s*[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
+            pattern: "((?i:\\b(?:adw\\.?|adwokat|r\\.?\\s*pr\\.?|radca\\s+prawny|aplikant\\w*(?:\\s+(?:adwokack|radcowsk)\\w*)?))\\s*[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
             group: 1
             normalize: [collapse_ws, strip_titles, nominative]
       - key: pesel

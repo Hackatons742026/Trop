@@ -86,6 +86,28 @@ def test_pelnomocnicy_ignores_lowercase_prose() -> None:
     assert "Kowalsk" in names[0]
 
 
+def test_pelnomocnicy_block_keeps_pesel() -> None:
+    """The block used to end at the word PESEL, cutting off the number."""
+    pel = _pelnomocnictwo_payload()["pelnomocnicy"]
+    assert [p["pesel"] for p in pel] == ["80010112345"]
+
+
+def test_pelnomocnicy_header_layout_skips_untitled_names() -> None:
+    """Layout from the official training set: plural header, titled names."""
+    text = (
+        "P E Ł N O M O C N I C T W O\n"
+        "Mocodawca Hartica Serwis S.A.\n"
+        "Pełnomocnicy adw. Bartosz Szymanski, nr wpisu WA 33513\n"
+        "r. pr. Cezary Wierzbicki, nr wpisu WA 16243\n"
+        "Zamawiający Eurosept Infrastruktura S.A.\n"
+        "Zakres Mocodawca upoważniam wskazanym pełnomocnikom do:\n"
+        "• zastępowania Wykonawcy przed Krajową Izbą Odwoławczą,\n"
+        "Data 03.09.2026\n"
+    )
+    pel = extract_payload(text, _spec("pelnomocnictwo"))["pelnomocnicy"]
+    assert [p["imie_nazwisko"] for p in pel] == ["Bartosz Szymanski", "Cezary Wierzbicki"]
+
+
 def test_pelnomocnik_name_requires_capitalised_tokens() -> None:
     text = (
         "Odwołujący: Firma Testowa S.A.\n"
