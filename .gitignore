@@ -42,3 +42,6 @@ Thumbs.db
 # OCR / model caches (RapidOCR downloads models on first run)
 .rapidocr/
 *.onnx
+
+# Organisers' training data (golden tests read it via TROP_DANE_DIR or ./dane)
+dane/
