@@ -88,7 +88,8 @@ docker compose up -d gui
 | `ocr.max_pages` | `20` | Cap OCR pages even if more pages are weak |
 | PDFium lock | process-wide | PDFium is not thread-safe; all pypdfium2 calls serialized |
 | OCR lock | process-wide | RapidOCR inference serialized |
-| Compose `user` | `0:0` | Root by default so mounted `./output` is writable |
+| Compose `user` (`trop`) | `0:0` | Root by default so mounted `./output` is writable |
+| Compose `user` (`gui`) | `1000:1000` | Non-root; read-only mounts of `classes/`, `config/`, `app/` |
 
 Tune via `config/app.yaml` or `TROP_*` env (see `.env.example`).
 
