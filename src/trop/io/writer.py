@@ -9,8 +9,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-EMPTY_OBJECT: dict[str, Any] = {}
-
 
 def write_json(path: Path, payload: Any) -> Path:
     """Serialize ``payload`` as UTF-8 JSON (ensure_ascii=False) to ``path``."""

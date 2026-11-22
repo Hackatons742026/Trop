@@ -13,10 +13,7 @@ detect:
     - { pattern: "(?i)z\\s+rachunku|na\\s+rachunek", weight: 2.0 }
     - { pattern: "(?i)opłat[ay]\\s+(?:odwoławcz|skarbow)", weight: 1.5 }
 
-blocks:
-  - id: body
-    start: null
-    end: null
+blocks: []
 
 fields:
   - path: przelew_bankowy.data_operacji
@@ -68,6 +65,7 @@ fields:
       - type: label
         labels: ["Numer transakcji", "Nr transakcji", "ID transakcji", "Referencja"]
         value_pattern: "([A-Z0-9][A-Z0-9\\-]{5,40})"
+        value_flags: "i"  # bank references may be lowercase hex
         normalize: [collapse_ws]
       - type: regex
         pattern: "(?i)(?:numer|nr)\\s+transakcji\\s*[:\\-]?\\s*([A-Z0-9][A-Z0-9\\-]{5,40})"

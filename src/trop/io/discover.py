@@ -30,8 +30,12 @@ def discover_pdfs(input_dir: Path) -> list[Path]:
 
 
 def relative_pdf_path(pdf_path: Path, input_dir: Path) -> Path:
-    """Return path of ``pdf_path`` relative to ``input_dir``."""
-    return pdf_path.resolve().relative_to(input_dir.resolve())
+    """Return path of ``pdf_path`` relative to ``input_dir``.
+
+    Only the parent directory is resolved: resolving the file itself would
+    follow a symlinked PDF out of ``input_dir`` and make ``relative_to`` fail.
+    """
+    return (pdf_path.parent.resolve() / pdf_path.name).relative_to(input_dir.resolve())
 
 
 def output_json_path(pdf_path: Path, input_dir: Path, output_dir: Path) -> Path:

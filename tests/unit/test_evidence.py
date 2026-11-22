@@ -94,6 +94,28 @@ def test_locate_and_write_sidecar(tmp_path: Path) -> None:
     assert data["fields"][0]["name"] == "przelew_bankowy.kwota"
 
 
+def test_extracted_fields_feed_evidence(tmp_path: Path) -> None:
+    from trop.extract.engine import extract_document
+    from trop.registry.loader import load_classes
+
+    text = (Path(__file__).resolve().parents[1] / "fixtures/text/przelew_smoke.txt").read_text(
+        encoding="utf-8"
+    )
+    doc = Document(
+        path=tmp_path / "p.pdf",
+        relative_path=Path("p.pdf"),
+        pages=[Page(index=0, text=text, source=TextSource.PDF_TEXT)],
+    )
+    spec = next(s for s in load_classes() if s.id == "przelew")
+    extract_document(doc, spec)
+
+    by_name = {f.name: f.value for f in doc.fields}
+    assert by_name["przelew_bankowy.numer_transakcji"] == "CEN2609035760798"
+    payload = build_evidence_payload(doc, class_id="przelew")
+    hit = next(f for f in payload["fields"] if f["name"] == "przelew_bankowy.numer_transakcji")
+    assert hit["evidence"] and hit["evidence"][0]["page"] == 0
+
+
 def test_orchestrator_evidence_outside_output(tmp_path: Path) -> None:
     from trop.settings import OcrSettings, Settings
 

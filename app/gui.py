@@ -7,8 +7,10 @@ Uses the same in-process path as the CLI (``process_one_pdf`` + ``write_json`` /
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +35,9 @@ from trop.settings import clear_settings_cache, get_settings  # noqa: E402
 
 PREVIEW_DPI = 110
 MAX_PREVIEW_PAGES = 20
+WORK_DIR_PREFIX = "trop_gui_"
+# Work dirs of sessions that ended are swept after this many seconds.
+STALE_WORK_DIR_S = 6 * 3600
 
 
 def _safe_stem(name: str) -> str:
@@ -42,8 +47,24 @@ def _safe_stem(name: str) -> str:
     return stem.replace("/", "_").replace("\\", "_")
 
 
+def _sweep_stale_work_dirs(*, now: float | None = None) -> None:
+    """Delete GUI work dirs untouched for ``STALE_WORK_DIR_S`` (ended sessions)."""
+    cutoff = (now if now is not None else time.time()) - STALE_WORK_DIR_S
+    for path in Path(tempfile.gettempdir()).glob(f"{WORK_DIR_PREFIX}*"):
+        try:
+            if path.is_dir() and path.stat().st_mtime < cutoff:
+                shutil.rmtree(path, ignore_errors=True)
+        except OSError:
+            continue
+
+
+@st.cache_data(max_entries=32, show_spinner=False)
 def _render_pdf_pages(pdf_path: Path, *, dpi: int = PREVIEW_DPI) -> tuple[list[Image.Image], int]:
-    """Rasterize PDF pages via pypdfium2 (``PdfiumBackend``) → RGB PIL images."""
+    """Rasterize PDF pages via pypdfium2 (``PdfiumBackend``) → RGB PIL images.
+
+    Cached: Streamlit reruns the script on every widget interaction, and each
+    work dir path is unique, so the path is a safe cache key.
+    """
     images: list[Image.Image] = []
     with PdfiumBackend(pdf_path) as backend:
         total = backend.page_count()
@@ -75,8 +96,16 @@ def _flatten_fields(payload: Any, prefix: str = "") -> list[tuple[str, str]]:
     return rows
 
 
-def _run_pipeline(uploads: list[Any]) -> dict[str, Any]:
-    """Persist uploads and process each PDF via the CLI pipeline helpers."""
+def _run_pipeline(uploads: list[Any], *, previous_work_dir: str | None = None) -> dict[str, Any]:
+    """Persist uploads and process each PDF via the CLI pipeline helpers.
+
+    Removes this session's previous batch dir and stale dirs of ended
+    sessions, so a long-running GUI does not fill the disk.
+    """
+    if previous_work_dir and Path(previous_work_dir).name.startswith(WORK_DIR_PREFIX):
+        shutil.rmtree(previous_work_dir, ignore_errors=True)
+    _sweep_stale_work_dirs()
+
     clear_settings_cache()
     clear_registry_cache()
     settings = get_settings()
@@ -84,7 +113,7 @@ def _run_pipeline(uploads: list[Any]) -> dict[str, Any]:
     negatives = load_negatives()
     labels = {spec.id: spec.label for spec in classes}
 
-    work = Path(tempfile.mkdtemp(prefix="trop_gui_"))
+    work = Path(tempfile.mkdtemp(prefix=WORK_DIR_PREFIX))
     input_dir = work / "input"
     output_dir = work / "output"
     input_dir.mkdir(parents=True, exist_ok=True)
@@ -175,7 +204,10 @@ def main() -> None:
             st.warning("Upload at least one PDF first.")
         else:
             with st.spinner("Processing with TROP pipeline…"):
-                st.session_state["trop_batch"] = _run_pipeline(list(uploads))
+                previous = (st.session_state.get("trop_batch") or {}).get("work_dir")
+                st.session_state["trop_batch"] = _run_pipeline(
+                    list(uploads), previous_work_dir=previous
+                )
                 st.session_state["trop_selected"] = 0
 
     batch = st.session_state.get("trop_batch")

@@ -20,7 +20,7 @@ from trop.io.evidence import write_evidence_sidecar
 from trop.io.schema_validate import validated_or_empty
 from trop.io.writer import write_empty_json, write_json
 from trop.llm import maybe_assist
-from trop.models import Case, Document
+from trop.models import Document
 from trop.registry.loader import ClassSpec, load_classes, load_negatives
 from trop.settings import Settings, get_settings
 
@@ -80,9 +80,11 @@ def process_one_pdf(
     evidence_dir: Path | None = None,
 ) -> tuple[Path, Path | None, str | None, Document | None, str]:
     """Process a single PDF → JSON. Returns (pdf, json_path, err, document, class_id)."""
-    json_path = output_json_path(pdf, input_dir, output_dir)
+    json_path: Path | None = None
     class_id = OTHER
     try:
+        # Inside the try: a path error must fail this file, not the batch.
+        json_path = output_json_path(pdf, input_dir, output_dir)
         rel = relative_pdf_path(pdf, input_dir)
         document = ingest_document(
             pdf,
@@ -109,7 +111,7 @@ def process_one_pdf(
             class_id=class_id,
         )
         # Schema-valid null-filled objects only; invalid → {}.
-        payload = validated_or_empty(payload, spec.schema)
+        payload = validated_or_empty(payload, spec.schema, validator=spec.validator)
         if not payload:
             write_empty_json(json_path)
             _maybe_write_evidence(evidence_dir, pdf, input_dir, document, class_id)
@@ -119,10 +121,11 @@ def process_one_pdf(
         return pdf, json_path, None, document, class_id
     except Exception as exc:  # noqa: BLE001 — isolate per file
         logger.exception("Failed processing %s: %s", pdf, exc)
-        try:
-            write_empty_json(json_path)
-        except Exception as write_exc:  # noqa: BLE001
-            logger.error("Could not write {} for %s: %s", pdf, write_exc)
+        if json_path is not None:
+            try:
+                write_empty_json(json_path)
+            except Exception as write_exc:  # noqa: BLE001
+                logger.error("Could not write {} for %s: %s", pdf, write_exc)
         return pdf, json_path, str(exc), None, OTHER
 
 
@@ -157,7 +160,6 @@ def process_case(
     negatives = load_negatives()
     pdfs = discover_pdfs(in_dir)
     result = ProcessResult(input_dir=in_dir, output_dir=out_dir, total=len(pdfs))
-    case = Case(input_dir=in_dir, output_dir=out_dir, evidence_dir=ev_dir)
 
     if not pdfs:
         logger.info("No PDFs found under %s", in_dir)
@@ -187,14 +189,14 @@ def process_case(
 
     if n_workers <= 1:
         for pdf in pdfs:
-            pdf, json_path, err, document, class_id = _one(pdf)
-            _record(result, case, pdf, json_path, err, document, class_id)
+            pdf, json_path, err, _document, class_id = _one(pdf)
+            _record(result, pdf, json_path, err, class_id)
     else:
         with ThreadPoolExecutor(max_workers=n_workers) as pool:
             futures = {pool.submit(_one, pdf): pdf for pdf in pdfs}
             for fut in as_completed(futures):
-                pdf, json_path, err, document, class_id = fut.result()
-                _record(result, case, pdf, json_path, err, document, class_id)
+                pdf, json_path, err, _document, class_id = fut.result()
+                _record(result, pdf, json_path, err, class_id)
 
     logger.info(
         "Done: %s ok, %s failed, %s total → %s | classes=%s",
@@ -209,28 +211,17 @@ def process_case(
 
 def _record(
     result: ProcessResult,
-    case: Case,
     pdf: Path,
     json_path: Path | None,
     err: str | None,
-    document: Document | None,
     class_id: str,
 ) -> None:
+    # Documents (full page text) are not retained: memory stays flat per run.
     result.classified[class_id] = result.classified.get(class_id, 0) + 1
     if json_path is not None:
         result.outputs.append(json_path)
     if err:
         result.failed += 1
         result.errors.append((pdf, err))
-        if document is None:
-            document = Document(
-                path=pdf,
-                relative_path=Path(pdf.name),
-                error=err,
-            )
-        else:
-            document.error = err
     else:
         result.succeeded += 1
-    if document is not None:
-        case.documents.append(document)

@@ -23,9 +23,6 @@ blocks:
   - id: zamawiajacy
     start: "(?i)zamawiając"
     end: "(?i)(dotycząc[ae]\\s+postępowania|zamówieni[ae]\\s+publiczn|przedmiot|zarzut)"
-  - id: zamowienie
-    start: "(?i)(dotycząc[ae]\\s+postępowania|zamówieni[ae]\\s+publiczn|numer\\s+ogłoszenia|BZP|TED)"
-    end: "(?i)zarzut"
   - id: zarzuty
     start: "(?i)zarzut"
     end: null
@@ -45,14 +42,16 @@ fields:
 
   - path: OdwolanieKIO.miejscowosc
     extractors:
+      # Case-sensitive on purpose: [A-Z…] must mean an uppercase initial, so
+      # only keywords are wrapped in a scoped (?i:…) flag.
       - type: regex
         block: header
-        pattern: "(?i)^\\s*([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\- ]{2,40})\\s*,\\s*dnia"
+        pattern: "^\\s*([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\- ]{2,40})\\s*,\\s*(?i:dnia)"
         group: 1
         normalize: [collapse_ws, strip_titles]
       - type: regex
         block: header
-        pattern: "(?i)([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\- ]{2,40})\\s+\\d{1,2}[./-]\\d{1,2}[./-]\\d{4}"
+        pattern: "([A-ZĄĆĘŁŃÓŚŹŻ][A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż\\- ]{2,40})\\s+\\d{1,2}[./-]\\d{1,2}[./-]\\d{4}"
         group: 1
         normalize: [collapse_ws]
 
@@ -115,10 +114,11 @@ fields:
     extractors:
       - type: label
         labels: ["Numer postępowania", "Nr postępowania", "Numer referencyjny", "Znak sprawy", "Nr ref."]
-        value_pattern: "([A-Z0-9][A-Z0-9./_\\-]{3,40})"
+        # Uppercase/digit first char keeps prose ("jest", "brak") out.
+        value_pattern: "([A-Z0-9][A-Za-z0-9./_\\-]{3,40})"
         normalize: [collapse_ws]
       - type: regex
-        pattern: "(?i)(?:numer\\s+(?:postępowania|referencyjny)|nr\\s+postępowania|znak\\s+sprawy)\\s*[:\\-]?\\s*([A-Z0-9][A-Z0-9./_\\-]{3,40})"
+        pattern: "(?i:numer\\s+(?:postępowania|referencyjny)|nr\\s+postępowania|znak\\s+sprawy)\\s*[:\\-]?\\s*([A-Z0-9][A-Za-z0-9./_\\-]{3,40})"
         group: 1
         normalize: [collapse_ws]
 
@@ -171,7 +171,8 @@ lists:
       - key: pelnomocnik.imie_nazwisko
         extractors:
           - type: regex
-            pattern: "(?i)pełnomocnik(?:a|iem)?\\s*[:\\-]?\\s*((?:adw\\.?|r\\.?\\s*pr\\.?|radca\\s+prawny)?\\s*[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+\\s+[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż\\-]+)"
+            # Name tokens: Title-case or ALL-CAPS; never lowercase prose.
+            pattern: "(?i:pełnomocnik(?:a|iem)?)\\s*[:\\-]?\\s*((?i:adw\\.?|r\\.?\\s*pr\\.?|radca\\s+prawny)?\\s*[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)\\s+[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+)(?:-[A-ZĄĆĘŁŃÓŚŹŻ](?:[a-ząćęłńóśźż]+|[A-ZĄĆĘŁŃÓŚŹŻ]+))?)"
             group: 1
             normalize: [collapse_ws, strip_titles, nominative]
       - key: pelnomocnik.nazwa

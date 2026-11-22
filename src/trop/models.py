@@ -73,13 +73,7 @@ class Document(BaseModel):
     pages: list[Page] = Field(default_factory=list)
     # Document class (form type) — assigned in classify step (P1).
     doc_class: str | None = None
+    # Flattened extracted values (filled by extract; feed evidence sidecars).
+    fields: list[FieldValue] = Field(default_factory=list)
     error: str | None = None
 
-
-class Case(BaseModel):
-    """A processing case: one input tree run producing mirrored JSON outputs."""
-
-    input_dir: Path
-    output_dir: Path
-    evidence_dir: Path | None = None
-    documents: list[Document] = Field(default_factory=list)

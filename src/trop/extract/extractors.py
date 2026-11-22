@@ -76,12 +76,9 @@ def run_regex_all(text: str, spec: ExtractorSpec) -> list[Any]:
 def run_label(text: str, spec: ExtractorSpec) -> Any:
     if not text or not spec.labels:
         return None
-    value_pat = spec.value_pattern or r"([^\n]+)"
     for label in spec.labels:
-        # Label then optional :/- then capture
-        pat = rf"(?i){re.escape(label)}\s*[:\-]?\s*{value_pat}"
         try:
-            cre = _compile(pat, spec.value_flags)
+            cre = _compile(spec.label_regex(label), spec.value_flags)
         except re.error:
             continue
         m = cre.search(text)

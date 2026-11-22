@@ -70,6 +70,30 @@ def test_maybe_assist_enabled_without_key_keeps_rules(monkeypatch) -> None:
     assert out == {"x": 1}
 
 
+def test_maybe_assist_enabled_sends_nothing(monkeypatch) -> None:
+    """Without a merge step, document text must not leave the machine."""
+
+    # Record instead of raising: the transport swallows every exception.
+    clients: list[object] = []
+
+    def no_network(*args, **kwargs):
+        clients.append((args, kwargs))
+        raise RuntimeError("network disabled in test")
+
+    monkeypatch.setattr("trop.llm.client.httpx.Client", no_network)
+    payload = {"kwota": 10}
+    profile = LlmProfile(
+        name="openai_compatible",
+        enabled=True,
+        base_url="https://example.invalid/v1",
+        model="test-model",
+        api_key="fake-key",
+    )
+    out = maybe_assist(payload, document_text="poufna treść", profile=profile)
+    assert out is payload
+    assert clients == []
+
+
 def test_maybe_assist_failure_keeps_rules(monkeypatch) -> None:
     """Transport/API failure must not alter rules-only JSON."""
     payload = {"kwota": 10}

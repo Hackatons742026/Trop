@@ -89,20 +89,43 @@ def ingest_document(
             allow_ocr = True
             if ocr_budget is not None and ocr_budget >= 0 and ocr_used >= ocr_budget:
                 allow_ocr = False
-            page = _ingest_page(
+            page, ocr_attempted = _ingest_page(
                 pdf,
                 i,
                 dpi=dpi,
                 ocr_cfg=ocr_cfg,
                 allow_ocr=allow_ocr,
             )
-            if page.used_ocr:
+            # The budget caps OCR cost, so count attempts even when the
+            # text layer was kept.
+            if ocr_attempted:
                 ocr_used += 1
             doc.pages.append(page)
     finally:
         if own_backend:
             pdf.close()
     return doc
+
+
+def prefer_ocr(
+    *,
+    text_chars: int,
+    text_ratio: float,
+    ocr_chars: int,
+    ocr_cfg: OcrSettings,
+) -> bool:
+    """Decide whether an OCR reading should replace the page's text layer.
+
+    A garbled or empty text layer gives way to any OCR text. A genuine but
+    short one (signature / date page) is exact, so OCR only wins when it adds
+    at least a page's worth (``min_chars``) — e.g. a scan with a text stamp.
+    """
+    if ocr_chars == 0:
+        return False
+    text_trusted = text_chars > 0 and text_ratio >= ocr_cfg.min_printable_ratio
+    if not text_trusted:
+        return True
+    return ocr_chars >= text_chars + ocr_cfg.min_chars
 
 
 def _ingest_page(
@@ -112,7 +135,8 @@ def _ingest_page(
     dpi: int,
     ocr_cfg: OcrSettings,
     allow_ocr: bool = True,
-) -> Page:
+) -> tuple[Page, bool]:
+    """Return ``(page, ocr_attempted)``."""
     width, height = pdf.page_size(index)
     raw_text = pdf.extract_text(index) or ""
     meaningful, ratio = printable_stats(raw_text)
@@ -137,7 +161,7 @@ def _ingest_page(
         )
     )
     if not needs_ocr:
-        return page
+        return page, False
 
     logger.debug(
         "Page %s text unusable (chars=%s ratio=%.3f) → OCR",
@@ -147,11 +171,24 @@ def _ingest_page(
     )
     rendered = pdf.render_page(index, dpi=dpi)
     ocr_text, ocr_lines = ocr_image(rendered.image)
+    ocr_meaningful, ocr_ratio = printable_stats(ocr_text)
+    if not prefer_ocr(
+        text_chars=meaningful,
+        text_ratio=ratio,
+        ocr_chars=ocr_meaningful,
+        ocr_cfg=ocr_cfg,
+    ):
+        logger.debug(
+            "Page %s: keeping text layer (%s chars) over OCR (%s chars)",
+            index,
+            meaningful,
+            ocr_meaningful,
+        )
+        return page, True
     page.text = ocr_text
     page.lines = ocr_lines
     page.used_ocr = True
-    meaningful, ratio = printable_stats(ocr_text)
-    page.printable_chars = meaningful
-    page.printable_ratio = ratio
-    page.source = TextSource.OCR if ocr_text.strip() else TextSource.EMPTY
-    return page
+    page.printable_chars = ocr_meaningful
+    page.printable_ratio = ocr_ratio
+    page.source = TextSource.OCR
+    return page, True

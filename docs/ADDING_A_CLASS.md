@@ -26,7 +26,14 @@ start with `_` (for example `_template`, `_demo_przystapienie`) are ignored.
    - `blocks` — optional text windows (`start` / `end` regex).
    - `fields` — dotted paths + `regex` / `label` / `const` / `derived` extractors.
    - `lists` — array-shaped sections (`mode: single` or `multi_from_regex`).
+     In `single` mode a field's extractor may set `block:` to search a
+     different block than the list's own (e.g. signatures at the end).
    - Use `normalize:` hooks already in the pipeline (`date_pl`, `krs_pad10`, …).
+   - **Case matters in extractors.** Wrap only keywords in a scoped flag, e.g.
+     `(?i:pełnomocnik)\s*([A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]+ …)`. A leading `(?i)`
+     makes `[A-Z…]` match lowercase letters too, so any two words look like a
+     name. `label` extractors match the label case-insensitively but keep the
+     `value_pattern` case-sensitive unless you set `value_flags: "i"`.
 
 4. **Align `schema.json`**
 

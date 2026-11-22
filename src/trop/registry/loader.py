@@ -4,16 +4,21 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 import yaml
+from jsonschema import Draft202012Validator
 
+from trop.normalize.fns import NORMALIZERS
 from trop.settings import _repo_root
 
 logger = logging.getLogger(__name__)
+
+EXTRACTOR_TYPES = frozenset({"regex", "regex_all", "label", "const", "derived"})
 
 
 @dataclass(frozen=True)
@@ -55,6 +60,15 @@ class ExtractorSpec:
     wrap_key: str | None = None
     raw: dict[str, Any] = field(default_factory=dict, compare=False)
 
+    def label_regex(self, label: str) -> str:
+        """Regex for a ``label`` extractor: label (case-insensitive) + value.
+
+        The flag is scoped to the label so value patterns keep their case
+        semantics (``[A-Z]`` means uppercase); ``value_flags: i`` relaxes them.
+        """
+        value_pat = self.value_pattern or r"([^\n]+)"
+        return rf"(?i:{re.escape(label)})\s*[:\-]?\s*{value_pat}"
+
 
 @dataclass(frozen=True)
 class FieldSpec:
@@ -88,12 +102,16 @@ class ClassSpec:
     lists: tuple[ListSpec, ...] = ()
     schema: dict[str, Any] = field(default_factory=dict)
     dicts: dict[str, Any] = field(default_factory=dict)
+    # Built once at load from a checked ``schema`` (None when there is none).
+    validator: Draft202012Validator | None = field(default=None, compare=False, repr=False)
 
 
 @dataclass(frozen=True)
 class NegativesConfig:
     anchors: tuple[DetectKeyword, ...] = ()
     veto_threshold: float = 5.0
+    # Veto applies when best_class_score - negative_score < veto_margin.
+    veto_margin: float = 2.0
 
 
 def default_classes_dir() -> Path:
@@ -183,9 +201,14 @@ def load_class_spec(class_dir: Path) -> ClassSpec:
     lists = tuple(_parse_list(lst) for lst in (data.get("lists") or []))
 
     schema: dict[str, Any] = {}
+    validator: Draft202012Validator | None = None
     schema_path = class_dir / "schema.json"
     if schema_path.is_file():
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        # A broken schema fails the class load (reported once) instead of
+        # turning every document of the class into {} at validation time.
+        Draft202012Validator.check_schema(schema)
+        validator = Draft202012Validator(schema)
 
     dicts: dict[str, Any] = {}
     dicts_dir = class_dir / "dicts"
@@ -204,7 +227,94 @@ def load_class_spec(class_dir: Path) -> ClassSpec:
         lists=lists,
         schema=schema,
         dicts=dicts,
+        validator=validator,
     )
+
+
+def _regex_problem(pattern: str | None, where: str) -> str | None:
+    if not pattern:
+        return None
+    try:
+        re.compile(pattern, re.MULTILINE)
+    except re.error as exc:
+        return f"{where}: invalid regex ({exc}): {pattern!r}"
+    return None
+
+
+def _extractor_problems(
+    ex: ExtractorSpec,
+    where: str,
+    block_ids: set[str],
+) -> list[str]:
+    problems: list[str] = []
+    if (ex.type or "regex").lower() not in EXTRACTOR_TYPES:
+        problems.append(
+            f"{where}: unknown extractor type {ex.type!r} "
+            f"(expected one of {sorted(EXTRACTOR_TYPES)})"
+        )
+    checks = [(ex.pattern, f"{where}.pattern"), (ex.stop_at, f"{where}.stop_at")]
+    if ex.type == "label":
+        checks.append((ex.label_regex("label"), f"{where}.value_pattern"))
+    problems += [p for pat, w in checks if (p := _regex_problem(pat, w))]
+    problems += [
+        f"{where}: unknown normalizer {name!r}" for name in ex.normalize if name not in NORMALIZERS
+    ]
+    if ex.block and ex.block not in block_ids:
+        problems.append(f"{where}: unknown block {ex.block!r}")
+    return problems
+
+
+def validate_class_spec(spec: ClassSpec) -> list[str]:
+    """Return config problems that would otherwise fail silently at runtime.
+
+    Invalid regexes, unknown extractor types / normalizers and unknown block
+    ids never raise during extraction — the field just stays ``None``.
+    """
+    src = f"{spec.root.name}/class.yaml"
+    block_ids = {b.id for b in spec.blocks}
+    problems: list[str] = []
+    for i, kw in enumerate(spec.detect.keywords):
+        if p := _regex_problem(kw.pattern, f"{src} detect.keywords[{i}]"):
+            problems.append(p)
+    for b in spec.blocks:
+        for attr in ("start", "end"):
+            if p := _regex_problem(getattr(b, attr), f"{src} blocks[{b.id}].{attr}"):
+                problems.append(p)
+    for fld in spec.fields:
+        for i, ex in enumerate(fld.extractors):
+            problems += _extractor_problems(
+                ex, f"{src} fields[{fld.path}].extractors[{i}]", block_ids
+            )
+    for lst in spec.lists:
+        if p := _regex_problem(lst.item_pattern, f"{src} lists[{lst.path}].item_pattern"):
+            problems.append(p)
+        if lst.block and lst.block not in block_ids:
+            problems.append(f"{src} lists[{lst.path}]: unknown block {lst.block!r}")
+        for lf in lst.fields:
+            for i, ex in enumerate(lf.extractors):
+                where = f"{src} lists[{lst.path}].fields[{lf.key}].extractors[{i}]"
+                problems += _extractor_problems(ex, where, block_ids)
+    return problems
+
+
+def load_classes_report(
+    classes_dir: Path | str | None = None,
+) -> tuple[tuple[ClassSpec, ...], list[str]]:
+    """Load class specs and collect every load / validation problem."""
+    root = Path(classes_dir) if classes_dir else default_classes_dir()
+    if not root.is_dir():
+        return (), [f"Classes directory missing: {root}"]
+    specs: list[ClassSpec] = []
+    problems: list[str] = []
+    for child in iter_class_dirs(root):
+        try:
+            spec = load_class_spec(child)
+        except Exception as exc:  # noqa: BLE001 — isolate broken class folders
+            problems.append(f"{child.name}/class.yaml: failed to load: {exc}")
+            continue
+        specs.append(spec)
+        problems += validate_class_spec(spec)
+    return tuple(sorted(specs, key=lambda s: s.id)), problems
 
 
 def iter_class_dirs(classes_dir: Path | str | None = None) -> list[Path]:
@@ -233,19 +343,14 @@ def load_classes(classes_dir: str | None = None) -> tuple[ClassSpec, ...]:
 
     Folders starting with ``_`` (e.g. ``_template``) are ignored so templates
     never register. Adding a new ``classes/<id>/class.yaml`` is enough — no
-    Python import required.
+    Python import required. Config problems are logged as errors; a class
+    with a bad pattern still loads (that pattern just never matches), and
+    ``trop classes list`` reports them with a non-zero exit.
     """
-    root = Path(classes_dir) if classes_dir else default_classes_dir()
-    if not root.is_dir():
-        logger.warning("Classes directory missing: %s", root)
-        return ()
-    specs: list[ClassSpec] = []
-    for child in iter_class_dirs(root):
-        try:
-            specs.append(load_class_spec(child))
-        except Exception as exc:  # noqa: BLE001 — isolate broken class folders
-            logger.error("Failed loading class from %s: %s", child, exc)
-    return tuple(sorted(specs, key=lambda s: s.id))
+    specs, problems = load_classes_report(classes_dir)
+    for problem in problems:
+        logger.error("Class config problem: %s", problem)
+    return specs
 
 
 @lru_cache
@@ -259,9 +364,13 @@ def load_negatives(path: str | None = None) -> NegativesConfig:
         DetectKeyword(pattern=str(a["pattern"]), weight=float(a.get("weight", 1.0)))
         for a in (data.get("anchors") or [])
     )
+    for i, anchor in enumerate(anchors):
+        if problem := _regex_problem(anchor.pattern, f"{cfg_path.name} anchors[{i}]"):
+            logger.error("Negatives config problem: %s", problem)
     return NegativesConfig(
         anchors=anchors,
         veto_threshold=float(data.get("veto_threshold", 5.0)),
+        veto_margin=float(data.get("veto_margin", 2.0)),
     )
 
 

@@ -12,11 +12,16 @@ from typing import Optional
 import typer
 from rich.console import Console
 from rich.logging import RichHandler
+from rich.markup import escape
 from rich.table import Table
 
 from trop import __version__
 from trop.orchestrator import process_case
-from trop.registry.loader import clear_registry_cache, default_classes_dir, load_classes
+from trop.registry.loader import (
+    clear_registry_cache,
+    default_classes_dir,
+    load_classes_report,
+)
 from trop.settings import _repo_root, clear_settings_cache, get_settings
 
 _CLASS_ID_RE = re.compile(r"^[a-z][a-z0-9_]{1,63}$")
@@ -202,9 +207,13 @@ def eval_cmd(
 
 @classes_app.command("list")
 def classes_list() -> None:
-    """List registered document classes from ``classes/*/class.yaml``."""
+    """List registered document classes from ``classes/*/class.yaml``.
+
+    Exits 1 when no class loads or any class config has problems (invalid
+    regex, unknown extractor type / normalizer / block).
+    """
     clear_registry_cache()
-    specs = load_classes()
+    specs, problems = load_classes_report()
     table = Table(title=f"Classes ({default_classes_dir()})")
     table.add_column("id")
     table.add_column("label")
@@ -222,10 +231,15 @@ def classes_list() -> None:
             str(len(spec.fields) + len(spec.lists)),
         )
     console.print(table)
+    for problem in problems:
+        # escape(): paths like fields[a.b] would otherwise be eaten as markup.
+        console.print(
+            f"[red]Config problem:[/red] {escape(problem)}", highlight=False, soft_wrap=True
+        )
     if not specs:
         console.print("[yellow]No classes found.[/yellow]")
         raise typer.Exit(code=1)
-    raise typer.Exit(code=0)
+    raise typer.Exit(code=1 if problems else 0)
 
 
 @app.command("new-class")
@@ -253,9 +267,6 @@ def new_class(
             "[red]Invalid class id[/red]: use lowercase [a-z][a-z0-9_]{1,63} "
             f"(got {class_id!r})"
         )
-        raise typer.Exit(code=2)
-    if class_id.startswith("_"):
-        console.print("[red]Class id must not start with '_'[/red] (reserved for templates).")
         raise typer.Exit(code=2)
 
     classes_root = default_classes_dir()

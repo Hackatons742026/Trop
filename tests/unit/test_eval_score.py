@@ -34,11 +34,42 @@ def test_exact_and_fuzzy() -> None:
     )
 
 
+def test_fuzzy_rejects_token_subsets() -> None:
+    """token_set_ratio scored these 100; they are partial / over-captures."""
+    assert not values_equal("Gmina", "Gmina Miejska Kraków", "Zamawiajacy[0].nazwa")
+    assert not values_equal("sp. z o.o.", "Budex sp. z o.o.", "Odwolujacy[0].nazwa")
+    assert not values_equal(
+        "Budex sp. z o.o. z siedzibą w Krakowie, KRS 0000123456, NIP 6762345678",
+        "Budex sp. z o.o.",
+        "mocodawca[0].data.nazwa",
+    )
+
+
 def test_holdout_cases() -> None:
     assert is_holdout_path("przyklad_46/odwolanie.json")
     assert is_holdout_path("przyklad_60/x.json")
     assert not is_holdout_path("przyklad_45/odwolanie.json")
     assert not is_holdout_path("negatywne/wyrok.json")
+
+
+def test_gold_map_holdout_pattern_and_range_are_used(tmp_path: Path) -> None:
+    pred, gold = tmp_path / "pred" / "sprawa_7", tmp_path / "gold" / "sprawa_7"
+    pred.mkdir(parents=True)
+    gold.mkdir(parents=True)
+    (pred / "a.json").write_text(json.dumps({"k": "v"}), encoding="utf-8")
+    (gold / "a.json").write_text(json.dumps({"k": "v"}), encoding="utf-8")
+    gold_map = tmp_path / "map.yaml"
+    gold_map.write_text(
+        'holdout:\n  case_min: 5\n  case_max: 9\n  pattern: "sprawa_(\\\\d+)"\n',
+        encoding="utf-8",
+    )
+
+    report = evaluate(tmp_path / "pred", tmp_path / "gold", map_path=gold_map)
+
+    assert report.docs[0].holdout is True
+    assert report.holdout.tp == 1
+    assert report.to_dict()["holdout"]["case_range"] == "5-9"
+    assert "hold-out (5-9)" in format_report_markdown(report)
 
 
 def test_is_absent() -> None:

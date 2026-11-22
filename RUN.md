@@ -12,7 +12,7 @@ Judge / demo VM path convention:
   ├── input/               # drop PDFs here (empty in git; no assets checked in)
   ├── output/              # mirrored same-stem JSON (empty in git)
   ├── evidence/            # optional debug dumps
-  ├── app/                 # Streamlit GUI (frontend owns app/gui.py)
+  ├── app/                 # Streamlit GUI (app/gui.py)
   ├── src/trop/            # package (editable install)
   ├── Dockerfile
   ├── docker-compose.yml
@@ -62,7 +62,7 @@ bash tools/bake_ocr_models.sh
 | Service | Role | Ports |
 |---------|------|-------|
 | `trop`  | One-shot batch PDF → JSON | — |
-| `gui`   | Streamlit stub on 8080 (`restart: unless-stopped`); FE owns `app/gui.py` | `8080` |
+| `gui`   | Streamlit GUI on 8080 (`restart: unless-stopped`, non-root, no auth) | `8080` |
 
 Batch only:
 
@@ -70,7 +70,7 @@ Batch only:
 docker compose run --rm trop
 ```
 
-GUI stub (sleeps until `app/gui.py` exists; then switch command to Streamlit):
+GUI (restrict port 8080 at the VM firewall / NSG — it has no authentication):
 
 ```bash
 docker compose up -d gui
@@ -86,8 +86,10 @@ docker compose up -d gui
 | `max_pages` | `40` | Pages read per PDF |
 | OCR | only when text weak | `<40` printable chars or printable ratio `<0.9` |
 | `ocr.max_pages` | `20` | Cap OCR pages even if more pages are weak |
-| OCR lock | process-wide | RapidOCR inference serialized; `workers>1` OK |
-| Compose `user` | `0:0` | Root by default so mounted `./output` is writable |
+| PDFium lock | process-wide | PDFium is not thread-safe; all pypdfium2 calls serialized |
+| OCR lock | process-wide | RapidOCR inference serialized |
+| Compose `user` (`trop`) | `0:0` | Root by default so mounted `./output` is writable |
+| Compose `user` (`gui`) | `1000:1000` | Non-root; read-only mounts of `classes/`, `config/`, `app/` |
 
 Tune via `config/app.yaml` or `TROP_*` env (see `.env.example`).
 
@@ -95,7 +97,7 @@ Tune via `config/app.yaml` or `TROP_*` env (see `.env.example`).
 
 ```bash
 cp .env.example .env
-# edit TROP_LLM_* if/when LLM assist is enabled (config/llm.yaml default_profile: none)
+# set TROP_LLM__API_KEY if/when an LLM profile is enabled in config/llm.yaml
 ```
 
 ## Evidence sidecars

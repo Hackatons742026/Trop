@@ -13,10 +13,12 @@ detect:
 blocks: []
 
 fields:
+  # Wrap only keywords in a scoped (?i:…) flag. A leading (?i) makes
+  # [A-Z] match lowercase too, so "capitalised word" name patterns break.
   # - path: example.field
   #   extractors:
   #     - type: regex
-  #       pattern: "(?i)label\\s*[:\\-]?\\s*(.+)"
+  #       pattern: "(?i:label)\\s*[:\\-]?\\s*(.+)"
   #       group: 1
   #       normalize: [collapse_ws]
 

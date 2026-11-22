@@ -33,6 +33,11 @@ def test_classify_przelew_by_content() -> None:
     assert result.class_id == "przelew"
 
 
+def test_classify_pelnomocnictwo_by_content() -> None:
+    text = (FIXTURES / "pelnomocnictwo_smoke.txt").read_text(encoding="utf-8")
+    assert classify_text(text).class_id == "pelnomocnictwo"
+
+
 def test_classify_ooc_wyrok_returns_other() -> None:
     text = (FIXTURES / "wyrok_ooc.txt").read_text(encoding="utf-8")
     negatives = load_negatives()
@@ -40,6 +45,20 @@ def test_classify_ooc_wyrok_returns_other() -> None:
     result = classify_text(text)
     assert result.class_id == OTHER
     assert result.negative_score > 0
+
+
+def test_veto_margin_comes_from_config() -> None:
+    from trop.registry.loader import DetectKeyword, NegativesConfig
+
+    text = (FIXTURES / "odwolanie_smoke.txt").read_text(encoding="utf-8") + "\nNEGATYW_TEST\n"
+    anchor = (DetectKeyword(pattern="NEGATYW_TEST", weight=6.0),)
+    best = classify_text(text, negatives=NegativesConfig()).score
+    gap = best - 6.0  # best_class_score - negative_score
+
+    strict = NegativesConfig(anchors=anchor, veto_threshold=5.0, veto_margin=gap + 1)
+    lenient = NegativesConfig(anchors=anchor, veto_threshold=5.0, veto_margin=gap - 1)
+    assert classify_text(text, negatives=strict).class_id == OTHER
+    assert classify_text(text, negatives=lenient).class_id == "odwolanie"
 
 
 def test_classify_ignores_filename_semantics() -> None:

@@ -13,7 +13,7 @@ from rapidfuzz import fuzz
 
 from eval.align import align_lists
 
-# Long-string fields: token_set_ratio >= 80 counts as TP (mentor rule).
+# Long-string fields: >= 80% similarity counts as TP (mentor rule).
 LONG_STRING_SUFFIXES = (
     "pelnomocnik.nazwa",  # attorney company name
     "przelew_bankowy.tytul",  # transfer title
@@ -80,6 +80,9 @@ class EvalReport:
     total: Counts = field(default_factory=Counts)
     train: Counts = field(default_factory=Counts)
     holdout: Counts = field(default_factory=Counts)
+    # Hold-out case range actually used (gold_map.yaml may override it).
+    holdout_min: int = HOLD_OUT_MIN
+    holdout_max: int = HOLD_OUT_MAX
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -100,8 +103,8 @@ class EvalReport:
                 "tp": self.holdout.tp,
                 "fp": self.holdout.fp,
                 "fn": self.holdout.fn,
-                "case_range": f"{HOLD_OUT_MIN}-{HOLD_OUT_MAX}",
-                "note": "przyklad_46..przyklad_60 flagged as hold-out",
+                "case_range": f"{self.holdout_min}-{self.holdout_max}",
+                "note": f"cases {self.holdout_min}..{self.holdout_max} flagged as hold-out",
             },
             "documents": [
                 {
@@ -133,8 +136,16 @@ def is_holdout_path(
     *,
     case_min: int = HOLD_OUT_MIN,
     case_max: int = HOLD_OUT_MAX,
+    pattern: re.Pattern[str] | str | None = None,
 ) -> bool:
-    m = HOLD_OUT_RE.search(str(rel).replace("\\", "/"))
+    """True if the case number captured by ``pattern`` (group 1) is in range."""
+    if pattern is None:
+        rx = HOLD_OUT_RE
+    elif isinstance(pattern, str):
+        rx = re.compile(pattern, re.IGNORECASE)
+    else:
+        rx = pattern
+    m = rx.search(str(rel).replace("\\", "/"))
     if not m:
         return False
     n = int(m.group(1))
@@ -156,7 +167,11 @@ def values_equal(pred: Any, gold: Any, path: str) -> bool:
         return float(pred) == float(gold)
     if isinstance(pred, str) and isinstance(gold, str):
         if _use_fuzzy(path):
-            return fuzz.token_set_ratio(pred, gold) >= SIMILARITY_THRESHOLD
+            # Normalized edit-distance similarity. Not token_set_ratio: it
+            # scores 100 whenever one side's tokens are a subset of the
+            # other's ("Gmina" vs "Gmina Miejska Kraków"), hiding over- and
+            # under-capture and inflating F1.
+            return fuzz.ratio(pred, gold) >= SIMILARITY_THRESHOLD
         return pred == gold
     return pred == gold
 
@@ -252,14 +267,18 @@ def evaluate(
     hold = meta.get("holdout") or {}
     case_min = int(hold.get("case_min", HOLD_OUT_MIN))
     case_max = int(hold.get("case_max", HOLD_OUT_MAX))
+    hold_rx = re.compile(hold["pattern"], re.IGNORECASE) if hold.get("pattern") else HOLD_OUT_RE
 
-    report = EvalReport()
+    def holdout_of(rel: str) -> bool:
+        return is_holdout_path(rel, case_min=case_min, case_max=case_max, pattern=hold_rx)
+
+    report = EvalReport(holdout_min=case_min, holdout_max=case_max)
     matched_gold: set[Path] = set()
 
     for pred_path in iter_json_files(pred_root):
         rel = pred_path.relative_to(pred_root).as_posix()
         gold_path = resolve_gold_path(pred_path, pred_root, gold_root, mappings)
-        holdout = is_holdout_path(rel, case_min=case_min, case_max=case_max)
+        holdout = holdout_of(rel)
         notes: list[str] = []
         if holdout:
             notes.append("hold-out")
@@ -305,7 +324,7 @@ def evaluate(
         if gold_path.resolve() in matched_gold:
             continue
         rel = gold_path.relative_to(gold_root).as_posix()
-        holdout = is_holdout_path(rel, case_min=case_min, case_max=case_max)
+        holdout = holdout_of(rel)
         notes = ["missing pred"]
         if holdout:
             notes.append("hold-out")
@@ -342,7 +361,7 @@ def format_report(report: EvalReport) -> str:
             f"(TP={report.train.tp} FP={report.train.fp} FN={report.train.fn})"
         ),
         (
-            f"Hold-out (przyklad_{HOLD_OUT_MIN}-{HOLD_OUT_MAX}) "
+            f"Hold-out (cases {report.holdout_min}-{report.holdout_max}) "
             f"F1={report.holdout.f1:.4f} "
             f"(TP={report.holdout.tp} FP={report.holdout.fp} FN={report.holdout.fn})"
         ),
@@ -377,7 +396,7 @@ def format_report_markdown(report: EvalReport) -> str:
             str(report.train.fn),
         ),
         (
-            f"hold-out ({HOLD_OUT_MIN}-{HOLD_OUT_MAX})",
+            f"hold-out ({report.holdout_min}-{report.holdout_max})",
             f"{report.holdout.f1:.4f}",
             f"{report.holdout.precision:.4f}",
             f"{report.holdout.recall:.4f}",

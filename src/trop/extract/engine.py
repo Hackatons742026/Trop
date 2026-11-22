@@ -8,7 +8,7 @@ import re
 from typing import Any
 
 from trop.extract.blocks import document_text, resolve_scope, slice_blocks
-from trop.extract.extractors import first_hit, run_extractor
+from trop.extract.extractors import first_hit
 from trop.models import Document, FieldValue, TextSource
 from trop.registry.loader import ClassSpec, ListSpec
 
@@ -92,30 +92,14 @@ def _extract_list(text: str, blocks: dict[str, str], lst: ListSpec) -> list[dict
     # Default: single item from block/scope
     item = {}
     for field in lst.fields:
-        # Special: podpisujacy via regex_all → list
-        if field.key == "podpisujacy" or any(e.type == "regex_all" for e in field.extractors):
-            for spec in field.extractors:
-                if spec.type == "regex_all":
-                    val = run_extractor(scope, spec)
-                    if val:
-                        _set_nested_item(item, field.key, val)
-                        break
-            else:
-                if field.key not in item:
-                    _set_nested_item(item, field.key, [] if field.key == "podpisujacy" else None)
-            continue
-        val = first_hit(scope, field.extractors)
+        # An extractor-level ``block:`` scopes this field instead of the list
+        # block (e.g. signatures live after the mocodawca section).
+        block_id = next((e.block for e in field.extractors if e.block), None)
+        field_scope = resolve_scope(text, blocks, block_id) if block_id else scope
+        # regex_all results are lists; first_hit skips empty ones, and an
+        # unmatched array field becomes [] from the schema skeleton later.
+        val = first_hit(field_scope, field.extractors)
         _set_nested_item(item, field.key, val)
-
-    # typ / osoba_prawna cleanup for mocodawca
-    if "data" in item and isinstance(item["data"], dict):
-        data = item["data"]
-        if data.get("krs") or data.get("nip"):
-            data["typ"] = "osoba_prawna"
-            if data.get("imie_nazwisko") is None:
-                data.setdefault("imie_nazwisko", None)
-        elif data.get("imie_nazwisko"):
-            data["typ"] = "osoba_fizyczna"
 
     if any(v is not None and v != [] for v in _leaf_values(item)):
         return [item]
@@ -136,16 +120,25 @@ def _leaf_values(obj: Any) -> list[Any]:
     return [obj]
 
 
-def _ensure_pelnomocnik(item: dict[str, Any]) -> None:
-    pel = item.get("pelnomocnik")
-    if not isinstance(pel, dict):
-        pel = {}
-        item["pelnomocnik"] = pel
-    for key in ("imie_nazwisko", "nazwa", "mail"):
-        pel.setdefault(key, None)
-    if item.get("przez-pelnomocnika") is None:
-        has = any(pel.get(k) for k in ("imie_nazwisko", "nazwa", "mail"))
-        item["przez-pelnomocnika"] = 1 if has else 0
+def _list_item_skeleton(schema: dict[str, Any], path: str) -> dict[str, Any]:
+    """Null-filled skeleton for one item of the top-level array ``path``."""
+    node = (schema.get("properties") or {}).get(path) or {}
+    items = node.get("items")
+    skeleton = _skeleton_props(items) if isinstance(items, dict) else None
+    return skeleton if isinstance(skeleton, dict) else {}
+
+
+def _fill_defaults(target: dict[str, Any], skeleton: dict[str, Any]) -> None:
+    """Add keys missing from ``target`` (recursively) using the schema skeleton.
+
+    ``None`` where the schema expects an object / array becomes ``{…}`` / ``[]``.
+    """
+    for key, default in skeleton.items():
+        current = target.get(key)
+        if key not in target or (current is None and isinstance(default, (dict, list))):
+            target[key] = copy.deepcopy(default)
+        elif isinstance(default, dict) and isinstance(current, dict):
+            _fill_defaults(current, default)
 
 
 def extract_payload(text: str, spec: ClassSpec) -> dict[str, Any]:
@@ -161,14 +154,10 @@ def extract_payload(text: str, spec: ClassSpec) -> dict[str, Any]:
         block_id = next((e.block for e in field.extractors if e.block), None)
         if block_id:
             scope = resolve_scope(text, blocks, block_id)
-        # derived uses flat_values
-        if field.extractors and field.extractors[0].type == "derived":
-            val = first_hit(scope, field.extractors, values=flat_values)
-        else:
-            # For fields with a dedicated block on extractors, try block then full text
-            val = first_hit(scope, field.extractors, values=flat_values)
-            if val is None and scope is not text:
-                val = first_hit(text, field.extractors, values=flat_values)
+        val = first_hit(scope, field.extractors, values=flat_values)
+        # A field scoped to a block falls back to the full text.
+        if val is None and scope is not text:
+            val = first_hit(text, field.extractors, values=flat_values)
         flat_values[field.path] = val
         _set_path(payload, field.path, val)
 
@@ -182,37 +171,12 @@ def extract_payload(text: str, spec: ClassSpec) -> dict[str, Any]:
         flat_values[field.path] = val
         _set_path(payload, field.path, val)
 
-    # Lists
+    # Lists: missing item keys come from the class schema, not from code.
     for lst in spec.lists:
         items = _extract_list(text, blocks, lst)
-        if lst.path == "Odwolujacy":
-            for it in items:
-                _ensure_pelnomocnik(it)
-                it.setdefault("krs", None)
-                it.setdefault("nazwa", None)
-                it.setdefault("nip", None)
-                it.setdefault("regon", None)
-        if lst.path == "Zamawiajacy":
-            for it in items:
-                it.setdefault("krs", None)
-                it.setdefault("nazwa", None)
-                it.setdefault("nip", None)
-                it.setdefault("regon", None)
-                it.setdefault("prowadzacy_postepowanie", None)
-        if lst.path == "pelnomocnicy":
-            for it in items:
-                it.setdefault("pesel", None)
-                it.setdefault("imie_nazwisko", None)
-        if lst.path == "mocodawca":
-            for it in items:
-                data = it.setdefault("data", {})
-                if isinstance(data, dict):
-                    data.setdefault("imie_nazwisko", None)
-                    data.setdefault("krs", None)
-                    data.setdefault("nazwa", None)
-                    data.setdefault("nip", None)
-                    data.setdefault("typ", "osoba_prawna" if data.get("krs") else "osoba_fizyczna")
-                it.setdefault("podpisujacy", [])
+        skeleton = _list_item_skeleton(spec.schema, lst.path)
+        for item in items:
+            _fill_defaults(item, skeleton)
         payload[lst.path] = items
 
     return payload
@@ -233,7 +197,7 @@ def extract_document(document: Document, spec: ClassSpec) -> dict[str, Any]:
                 source=TextSource.MIXED if document.pages else TextSource.EMPTY,
             )
         )
-    document.__dict__["_extracted_fields"] = document_fields
+    document.fields = document_fields
     return payload
 
 
@@ -251,6 +215,3 @@ def _flatten(obj: Any, prefix: str = "") -> list[tuple[str, Any]]:
         out.append((prefix, obj))
     return out
 
-
-def empty_payload() -> dict[str, Any]:
-    return copy.deepcopy({})

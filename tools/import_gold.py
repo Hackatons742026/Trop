@@ -89,7 +89,13 @@ def copy_tree(src: Path, dest: Path) -> None:
 
 
 def split_dane(dane: Path, input_dir: Path, gold_dir: Path) -> tuple[int, int]:
-    """Copy PDFs → input/, JSON → gold/. Invent ``{}`` gold for PDFs lacking JSON."""
+    """Copy PDFs → input/ and one gold JSON per PDF (same stem) → gold/.
+
+    Invents ``{}`` gold for PDFs lacking JSON. Gold JSON is only written
+    paired with a PDF: a JSON with no same-stem PDF (``przelew.json`` next to
+    ``potwierdzenie_przelewu.pdf``) can never get a prediction, and ``trop
+    eval`` would score it as all false negatives.
+    """
     pdf_count = 0
     gold_count = 0
     if not dane.is_dir():
@@ -120,13 +126,6 @@ def split_dane(dane: Path, input_dir: Path, gold_dir: Path) -> tuple[int, int]:
             elif not gold_dest.exists():
                 # Negatives / look-alikes without gold → expect {}
                 gold_dest.write_text("{}\n", encoding="utf-8")
-                gold_count += 1
-        elif suffix == ".json":
-            # Also keep canonical gold stems (odwolanie.json etc.) for eval by stem
-            dest = gold_dir / rel
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            if not dest.exists():
-                shutil.copy2(path, dest)
                 gold_count += 1
     return pdf_count, gold_count
 
