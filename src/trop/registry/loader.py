@@ -58,6 +58,9 @@ class ExtractorSpec:
     via: str | None = None
     map_to_powod_id: bool = False
     wrap_key: str | None = None
+    # label: max chars allowed between the label and its value (section headers
+    # such as "Dane nadawcy" whose value sits a few lines below).
+    window: int | None = None
     raw: dict[str, Any] = field(default_factory=dict, compare=False)
 
     def label_regex(self, label: str) -> str:
@@ -65,9 +68,12 @@ class ExtractorSpec:
 
         The flag is scoped to the label so value patterns keep their case
         semantics (``[A-Z]`` means uppercase); ``value_flags: i`` relaxes them.
+        The label must end on a word boundary ("Tytuł" ≠ "tytułu"); dot leaders
+        ("KWOTA ....... 50,00") count as separator.
         """
         value_pat = self.value_pattern or r"([^\n]+)"
-        return rf"(?i:{re.escape(label)})\s*[:\-]?\s*{value_pat}"
+        gap = rf"[\s\S]{{0,{int(self.window)}}}?" if self.window else r"[\s:\-–.…·]*"
+        return rf"(?i:{re.escape(label)})(?!\w){gap}{value_pat}"
 
 
 @dataclass(frozen=True)
@@ -145,6 +151,7 @@ def _parse_extractor(raw: dict[str, Any]) -> ExtractorSpec:
         via=raw.get("via"),
         map_to_powod_id=bool(raw.get("map_to_powod_id", False)),
         wrap_key=raw.get("wrap_key"),
+        window=int(raw["window"]) if raw.get("window") is not None else None,
         raw=dict(raw),
     )
 

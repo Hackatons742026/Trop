@@ -2,6 +2,7 @@
 
 from trop.normalize.fns import (
     NORMALIZERS,
+    account_number,
     amount_pl,
     apply_normalizers,
     bzp_number,
@@ -17,6 +18,7 @@ from trop.normalize.fns import (
 
 __all__ = [
     "NORMALIZERS",
+    "account_number",
     "amount_pl",
     "apply_normalizers",
     "bzp_number",

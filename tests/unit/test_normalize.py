@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from trop.normalize import (
+    account_number,
     amount_pl,
     apply_normalizers,
     bzp_number,
@@ -56,6 +57,21 @@ def test_iban_as_printed_keeps_pl() -> None:
         "PL 61 0101 0101 0008 1362 2310 0000"
     )
     assert iban_as_printed("60101010100081362231000000") == "60101010100081362231000000"
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("PL39203888965989833490230983", "39203888965989833490230983"),
+        ("PL39 2038 8896 5989 8334 9023 0983", "39203888965989833490230983"),
+        ("34 1240 1111 0246 3566 1382 2453", "34124011110246356613822453"),
+        ("39203888965989833490230983", "39203888965989833490230983"),
+        ("12345", None),
+        (None, None),
+    ],
+)
+def test_account_number(raw: object, expected: str | None) -> None:
+    assert account_number(raw) == expected
 
 
 def test_digits_only_and_krs() -> None:

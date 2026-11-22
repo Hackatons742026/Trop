@@ -143,6 +143,19 @@ def iban_as_printed(value: Any) -> str | None:
     return cleaned
 
 
+def account_number(value: Any) -> str | None:
+    """Polish account / IBAN → 26 digits (``PL`` and spacing dropped).
+
+    Training gold almost always stores digits only; a couple of scan golds
+    keep ``PL``. Digits-only maximises F1 on ``dane/``.
+    """
+    if value is None:
+        return None
+    text = re.sub(r"(?i)^\s*PL", "", str(value))
+    digits = re.sub(r"\D+", "", text)
+    return digits if re.fullmatch(r"\d{26}", digits) else None
+
+
 def bzp_number(value: Any) -> str | None:
     """Normalise BZP to ``YYYY/BZP########`` (optional ``/##``), no spaces."""
     text = collapse_ws(value)
@@ -271,6 +284,7 @@ NORMALIZERS: dict[str, Callable[[Any], Any]] = {
     "date_pl": date_pl,
     "amount_pl": amount_pl,
     "iban_as_printed": iban_as_printed,
+    "account_number": account_number,
     "bzp_number": bzp_number,
     "ted_number": ted_number,
     "strip_titles": strip_titles,
