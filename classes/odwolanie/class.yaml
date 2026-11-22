@@ -225,7 +225,9 @@ lists:
 
   - path: Zamawiajacy
     block: zamawiajacy
-    mode: single
+    # Joint contracting: "1) Zamawiający – Lider… 2) Zamawiający – Partner…"
+    mode: multi_from_regex
+    item_pattern: "(?i)(?:^|\\n)\\s*\\d+\\)\\s*Zamawiając\\w*"
     fields:
       - key: krs
         extractors:
@@ -248,14 +250,23 @@ lists:
       - key: nazwa
         extractors:
           - type: regex
-            pattern: "(?i)zamawiając[ya]\\s*[:\\-]?\\s*([^\\n]{5,200})"
+            # Skip the joint-proceeding parenthetical; take the firm line.
+            pattern: "(?i)(?:Zamawiając\\w*\\s*[–\\-]\\s*(?:Lider|Partner)[^\\n]*\\n|zamawiając[ya]\\s*(?:\\([^)]*\\))?\\s*[:\\-]?\\s*)\\s*([A-ZĄĆĘŁŃÓŚŹŻ][^\\n]{3,160})"
             group: 1
             normalize: [collapse_ws, strip_titles]
+          - type: regex
+            pattern: "([A-ZĄĆĘŁŃÓŚŹŻ][^\\n]{2,100}?(?i:S\\.A\\.|sp\\.\\s*z\\s*o\\.o\\.|sp\\.\\s*k\\.|sp\\.\\s*j\\.|Urząd|Gmina|Powiat|Centrum|Zespół|Zarząd|Szpital|Komenda))"
+            group: 1
+            normalize: [collapse_ws]
       - key: prowadzacy_postepowanie
         extractors:
           - type: regex
-            pattern: "(?i)(prowadząc[ya]\\s+postępowanie|lider\\s+postępowania)"
+            pattern: "(?i)(Lider|prowadząc[ya]\\s+postępowanie|lider\\s+postępowania)"
             group: 0
             const_on_match: 1
+          - type: regex
+            pattern: "(?i)\\bPartner\\b"
+            group: 0
+            const_on_match: 0
           - type: const
             value: null
